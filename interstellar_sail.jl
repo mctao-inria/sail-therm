@@ -1,15 +1,17 @@
-import Pkg
-Pkg.add("OptimalControl")
-Pkg.add("LinearAlgebra")
-Pkg.add("ForwardDiff")
-Pkg.add("MINPACK")
-Pkg.add("Plots")
+#import Pkg
+#Pkg.add("OptimalControl")
+#Pkg.add("LinearAlgebra")
+#Pkg.add("ForwardDiff")
+#Pkg.add("MINPACK")
+#Pkg.add("Plots")
+#Pkg.add("Interpolations")
 
 using OptimalControl
 using LinearAlgebra
 using ForwardDiff
 using MINPACK
 using Plots
+using Interpolations
 
 # Definition of the optical parameters 
 rho     = 0.88 #0.88        # Specular reflection coefficient
@@ -142,27 +144,6 @@ function control_ideal(x)
     return β
 end
 
-function readMatrixFromFile(filename)
-    # Open the file for reading
-    file = open(filename, "r")
-    
-    # Initialize an empty array to store the matrix rows
-    matrix = []
-
-    # Loop through each line in the file
-    for line in eachline(file)
-        if !isempty(line)
-            row = parse.(Float64, split(line))
-            push!(matrix, row)
-        end
-    end
-    
-    # Close the file
-    close(file)
-    
-    # Convert the array to a matrix
-    return hcat(matrix...)
-end
 
 @def ocp begin
     t ∈ [ t0, tf ], time
@@ -176,19 +157,97 @@ end
     cos(β(t))/(x[1](t)^2 + x[2](t)^2 + x[3](t)^2) * opt_constr * heat_constr + temp_constr ≤ 0 # temperature constraint
 end 
 
-# initial guess as functions of time
+# Read of the initial guess from Matlab
 filename = "matrix.txt"
-x = readMatrixFromFile(filename)
-println(size(x))
+file = open(filename, "r")
+file_content = read(file, String)
+close(file)
+lines = split(file_content, "\n")
+matrix_data = []
+for line in lines
+    # Split each line by spaces and convert to float
+    if !isempty(line)
+        row = [parse(Float64, x) for x in split(line)]
+        push!(matrix_data, row)
+    end
+end
 
-x = [1 2 3 4 5 6; 1 2 3 4 5 6; 1 2 3 4 5 6]
+# Interpolation of the initial guess
+t_inter  = matrix_data[1]
+x1       = matrix_data[2]
+x2       = matrix_data[3]
+x3       = matrix_data[4]
+x4       = matrix_data[5]
+x5       = matrix_data[6]
+x6       = matrix_data[7]
+x_inter  = hcat(x1[:], x2[:], x3[:], x4[:], x5[:], x6[:])
+u_inter  = zeros(size(x1))
 
-u = control_ideal(x)
-initial_guess = (state=x, control=u, variable=0.05)
+for i in 1:size(x_inter,1)
+    u_inter[i] = control_ideal(x_inter[i,:])
+end
+
+itp1     = LinearInterpolation(t_inter, x1)
+itp2     = LinearInterpolation(t_inter, x2)
+itp3     = LinearInterpolation(t_inter, x3)
+itp4     = LinearInterpolation(t_inter, x4)
+itp5     = LinearInterpolation(t_inter, x5)
+itp6     = LinearInterpolation(t_inter, x6)
+itp_u    = LinearInterpolation(t_inter, u_inter)
+
+## Figures
+# Create individual plots
+plotx1 = Plots.plot(t_inter, itp1(t_inter), grid = "off", framestyle = :box, legend = false)
+xlabel!("Time [0]")
+ylabel!("r₁ [-]")
+
+plotx2 = Plots.plot(t_inter, itp2(t_inter), grid = "off", framestyle = :box, legend = false)
+xlabel!("Time [0]")
+ylabel!("r₂ [-]")
+
+plotx3 = Plots.plot(t_inter, itp3(t_inter), grid = "off", framestyle = :box, legend = false)
+xlabel!("Time [0]")
+ylabel!("r₃ [-]")
+
+plotx4 = Plots.plot(t_inter, itp4(t_inter), grid = "off", framestyle = :box, legend = false)
+xlabel!("Time [0]")
+ylabel!("v₁ [-]")
+
+plotx5 = Plots.plot(t_inter, itp5(t_inter), grid = "off", framestyle = :box, legend = false)
+xlabel!("Time [0]")
+ylabel!("v₂ [-]")
+
+plotx6 = Plots.plot(t_inter, itp6(t_inter), grid = "off", framestyle = :box, legend = false)
+xlabel!("Time [0]")
+ylabel!("v₃ [-]")
+
+# Tile the plots in a 3x2 grid
+plotall = plot(plotx1, plotx2, plotx3, plotx4, plotx5, plotx6, layout = (3, 2), size = (1600, 1600));
+
+# Display the tiled plot
+display(plotall);
+savefig(plotall, "figures/plotall.pdf");
+
+# Control 
+Plots.plot(t_inter, itp_u(t_inter), grid = "off", framestyle = :box, legend = false)
+xlabel!("Time [0]")
+ylabel!("u [-]")
+savefig(plotall, "figures/control.pdf");
+
+#function itp_x(t)
+#    return [itp1(t), itp2(t), itp3(t), itp4(t), itp5(t), itp6(t)]
+#end
+
+x(t) = [itp1(t), itp2(t), itp3(t), itp4(t), itp5(t), itp6(t)]
+u(t)  = itp_u(t)
+# Initial guess
+initial_guess = (state=x, control=u)
 
 # Direct
 nlp_sol = solve(ocp, init=initial_guess)
+#nlp_sol = solve(ocp)
+
 
 plot(nlp_sol, size=(600, 450))
 
-nlp_sol
+#nlp_sol
