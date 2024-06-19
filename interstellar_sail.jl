@@ -13,8 +13,12 @@ using MINPACK
 using Plots
 using Interpolations
 
+include("kepl2cart.jl")
+include("control_ideal.jl")
+
+
 # Definition of the optical parameters 
-rho     = 0.88 #0.88        # Specular reflection coefficient
+rho     = 0.88        # Specular reflection coefficient
 s       = 1 #0.94        # Diffuse reflection coefficient 
 eps_f   = 0.05        # Emissivity front coeff 0.05
 eps_b   = 0.55        # Emissivity back coeff 0.55
@@ -42,21 +46,6 @@ temp0        = 293.15                    # Initial temperature of the satellite
 Csrp         = Cs / light_speed
 epsilon      = Am * Csrp
 
-function kepl2cart(a, e, i, RAAN, omega, theta, mu)  # Copy of the matlab function
-    # Initial conditions
-    r_orb      = a * (1 - e^2) / (1 + e * cos(theta)) .* [cos(theta); sin(theta); 0]
-    v_orb      = sqrt(mu / a / (1 - e^2)) .* [- sin(theta); e + cos(theta); 0]
-
-    ARAAN      = [cos(RAAN) sin(RAAN) 0; - sin(RAAN) cos(RAAN) 0; 0 0 1]
-    Ai         = [1 0 0; 0 cos(i) sin(i); 0 -sin(i) cos(i)]
-    Aomega     = [cos(omega) sin(omega) 0; - sin(omega) cos(omega) 0; 0 0 1]
-
-    Atot       = ARAAN' * Ai' * Aomega'
-
-    r          = Atot * r_orb # [m]
-    v          = Atot * v_orb # [m / s]
-    return r, v
-end
 
 # Initial orbit data
 rpsail        = 0.15                     # Periapsis distance elliptic orbit
@@ -71,7 +60,7 @@ xEarth        = [rE; vE]
 # Heat parameters for Kapton material
 spec_heat    = 989 / LU^2 * TU^2                     # J/kg/K
 heat_cap     = spec_heat * mass / LU^2 * TU^2        # J/K
-Tlim         = 750                                   # K
+Tlim         = 900                                   # K
 temp_constr  = Tlim^4 - Tds^4
 
 opt_constr   = (1 - rho)/(eps_f + eps_b)
@@ -85,17 +74,6 @@ pars0         = [mu; 0; b']
 # Integration (MATLAB)
 t0       = 0
 tf       = 3600 * 24 * 30 * 12 * 3.5 / TU
-
-function srpsail2D(x, β)
-    # SRP of the ideal solar sail in 2D
-    normr    = (x[1]^2 + x[2]^2)^(1/2)
-
-    fsrp     = [ 2 * epsilon * cos(β)^3; 
-                 2 * epsilon * sin(β) * cos(β)^2;
-                 0]
-    fsrp     = fsrp / normr^2
-    return fsrp
-end
 
 function F0(x)
     # Kepler equation
@@ -118,33 +96,6 @@ function F1(x, β)
     return dxdt
 end
 
-function adjoint2idealsail(theta)
-
-    tTheta   = tan(theta)
-    β    = atan((-3 + sign(tTheta) * sqrt(9 + 8 * tTheta^2)) / tTheta / 4)
-
-    return β
-end
-
-function control_ideal(x)
-    r        = x[1:3]
-    v        = x[4:6]
-
-    acos_arg = dot(v / norm(v), r / norm(r))
-    if acos_arg > 1
-        acos_arg = 1
-    end
-    if acos_arg < -1
-        acos_arg = -1
-    end
-    theta    = acos(acos_arg)
-    tTheta   = tan(theta)
-    
-    β        = atan((-3 + sign(tTheta) * sqrt(9 + 8 * tTheta^2)) / tTheta / 4)
-    return β
-end
-
-
 @def ocp begin
     t ∈ [ t0, tf ], time
     x ∈ R⁶, state
@@ -156,6 +107,24 @@ end
     -mu/sqrt(x[1](tf)^2 + x[2](tf)^2 + x[3](tf)^2) + 1/2 * (x[4](tf)^2 + x[5](tf)^2 + x[6](tf)^2) → max
     cos(β(t))/(x[1](t)^2 + x[2](t)^2 + x[3](t)^2) * opt_constr * heat_constr + temp_constr ≤ 0 # temperature constraint
 end 
+
+
+sol = solve(ocp)
+plot_sol = Plots.plot(sol, size=(900, 1200))
+savefig(plot_sol, "figures/plot_sol.pdf");
+
+
+state!(ocp, 1, "x1")
+
+println(sol)
+println(sol.times)
+x_sol = sol.state(sol.times)
+println(x_sol)
+
+
+
+plot_traj = Plots.plot(sol.x[1,:], sol.x[2,:], size=(900, 1200))
+savefig(plot_traj, "figures/plot_traj.pdf");
 
 # Read of the initial guess from Matlab
 filename = "matrix.txt"
@@ -239,15 +208,12 @@ savefig(plotall, "figures/control.pdf");
 #end
 
 x(t) = [itp1(t), itp2(t), itp3(t), itp4(t), itp5(t), itp6(t)]
-u(t)  = itp_u(t)
+β(t)  = itp_u(t)
 # Initial guess
-initial_guess = (state=x, control=u)
+initial_guess = (state=x, control=β)
 
 # Direct
-nlp_sol = solve(ocp, init=initial_guess)
-#nlp_sol = solve(ocp)
+#sol = solve(ocp, init=initial_guess)
+#sol = solve(ocp)
 
-
-plot(nlp_sol, size=(600, 450))
-
-#nlp_sol
+#plot(sol, size=(600, 450))
