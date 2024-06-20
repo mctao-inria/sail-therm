@@ -114,11 +114,14 @@ plot_sol = Plots.plot(sol, size=(900, 1200))
 savefig(plot_sol, "figures/plot_sol.pdf");
 
 
-state!(ocp, 1, "x1")
+for i in sol.times
+    x1_sol[i] = sol.state(i)[1]
+    x2_sol[i] = sol.state(i)[2]
+    x3_sol[i] = sol.state(i)[3]
+    x4_sol[i] = sol.state(i)[4]
+    x5_sol[i] = sol.state(i)[5]
+    x6_sol[i] = sol.state(i)[6]
 
-println(sol)
-println(sol.times)
-x_sol = sol.state(sol.times)
 println(x_sol)
 
 
