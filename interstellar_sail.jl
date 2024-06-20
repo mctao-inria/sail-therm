@@ -111,22 +111,27 @@ end
 
 sol = solve(ocp)
 plot_sol = Plots.plot(sol, size=(900, 1200))
+display(plot_sol)
 savefig(plot_sol, "figures/plot_sol.pdf");
 
+x1_sol = zeros(size(sol.times))
+x2_sol = zeros(size(sol.times))
+x3_sol = zeros(size(sol.times))
+x4_sol = zeros(size(sol.times))
+x5_sol = zeros(size(sol.times))
+x6_sol = zeros(size(sol.times))
 
-for i in sol.times
-    x1_sol[i] = sol.state(i)[1]
-    x2_sol[i] = sol.state(i)[2]
-    x3_sol[i] = sol.state(i)[3]
-    x4_sol[i] = sol.state(i)[4]
-    x5_sol[i] = sol.state(i)[5]
-    x6_sol[i] = sol.state(i)[6]
+for i in 1:size(sol.times,1)
+    x1_sol[i] = sol.state(sol.times[i])[1]
+    x2_sol[i] = sol.state(sol.times[i])[2]
+    x3_sol[i] = sol.state(sol.times[i])[3]
+    x4_sol[i] = sol.state(sol.times[i])[4]
+    x5_sol[i] = sol.state(sol.times[i])[5]
+    x6_sol[i] = sol.state(sol.times[i])[6]
+end
 
-println(x_sol)
-
-
-
-plot_traj = Plots.plot(sol.x[1,:], sol.x[2,:], size=(900, 1200))
+plot_traj = Plots.plot(x1_sol, x2_sol, size=(900, 1200))
+display(plot_traj)
 savefig(plot_traj, "figures/plot_traj.pdf");
 
 # Read of the initial guess from Matlab
