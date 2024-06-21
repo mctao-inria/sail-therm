@@ -18,81 +18,79 @@ include("control_ideal.jl")
 
 
 # Definition of the optical parameters 
-rho     = 0.88        # Specular reflection coefficient
-s       = 1 #0.94        # Diffuse reflection coefficient 
-eps_f   = 0.05        # Emissivity front coeff 0.05
-eps_b   = 0.55        # Emissivity back coeff 0.55
-Bf      = 0.79        # Front Lambertian coeff 0.79
-Bb      = 0.55        # Back Lambertian coeff 0.55
-eps     = 0 #(Bf * eps_f - Bb * eps_b) / (eps_b + eps_f) 
-b       = [1 - rho * s, 2 * rho * s, Bf * rho * (1 - s) + (1 - rho) * eps];
+rho = 0.88 # Specular reflection coefficient
+s = 1 #0.94 # Diffuse reflection coefficient 
+eps_f = 0.05 # Emissivity front coeff 0.05
+eps_b = 0.55 # Emissivity back coeff 0.55
+Bf = 0.79 # Front Lambertian coeff 0.79
+Bb = 0.55 # Back Lambertian coeff 0.55
+eps = 0 #(Bf * eps_f - Bb * eps_b) / (eps_b + eps_f) 
+b = [1 - rho * s, 2 * rho * s, Bf * rho * (1 - s) + (1 - rho) * eps];
 
 # Solar and space constants
-AU           = 1.495978707e11            # m Astronautical unit and Length unit HERE
-LU           = AU                        # Length Unit = AU
-mu           = 1
-#mu           = 132712440042e9 / LU^3    % m^3/s^2
-TU           = sqrt(AU^3/132712440042e9) # Time Unit
-Cs           = 1367 * TU^3               # W m^-2 solar flux at 1AU
-Tds          = 3                         # K temperature of the Deep Space
-sigma        = 5.67051e-8 * TU^3         # Stefan-Boltzmann's constant [W / m^2 /K^4]
-light_speed  = 299792458 / LU * TU       # Speed of light
+AU = 1.495978707e11            # m Astronautical unit and Length unit HERE
+LU = AU                        # Length Unit = AU
+mu = 1  #mu = 132712440042e9 / LU^3    % m^3/s^2
+TU = sqrt(AU^3/132712440042e9) # Time Unit
+Cs = 1367 * TU^3               # W m^-2 solar flux at 1AU
+Tds = 3                         # K temperature of the Deep Space
+sigma = 5.67051e-8 * TU^3         # Stefan-Boltzmann's constant [W / m^2 /K^4]
+light_speed = 299792458 / LU * TU       # Speed of light
 
 # Sail parameters
-Am           = 45 / LU^2                 # Area-to-mass ratio
-Area         = 20 * 6 / LU^2             # Vane area * quantity of vanes
-mass         = Area / Am                 # Mass of the satellite
-temp0        = 293.15                    # Initial temperature of the satellite
-Csrp         = Cs / light_speed
-epsilon      = Am * Csrp
+Am = 45 / LU^2                 # Area-to-mass ratio
+Area = 20 * 6 / LU^2             # Vane area * quantity of vanes
+mass = Area / Am                 # Mass of the satellite
+temp0 = 293.15                    # Initial temperature of the satellite
+Csrp = Cs / light_speed
+epsilon = Am * Csrp
 
 
 # Initial orbit data
-rpsail        = 0.15                     # Periapsis distance elliptic orbit
-a0            = (AU/LU + rpsail  * AU / LU ) /2
-e0            = 1 - rpsail/a0
-# OE0           = [0, 1e-6, 0, a0, e0, 0]
-r0, v0        = kepl2cart(a0, e0, 1e-6, 0, 0, 0, mu)
-x0            = [r0; v0]                 # Initial state
-rE, vE        = kepl2cart(1, 0, 1e-6, 0, 0, 0, mu)
-xEarth        = [rE; vE]
+rpsail = 0.15                     # Periapsis distance elliptic orbit
+a0 = (AU/LU + rpsail  * AU / LU ) /2
+e0 = 1 - rpsail/a0
+r0, v0 = kepl2cart(a0, e0, 1e-6, 0, 0, 0, mu)
+x0 = [r0; v0]                 # Initial state
+rE, vE = kepl2cart(1, 0, 1e-6, 0, 0, 0, mu)
+xEarth = [rE; vE]
   
 # Heat parameters for Kapton material
-spec_heat    = 989 / LU^2 * TU^2                     # J/kg/K
-heat_cap     = spec_heat * mass / LU^2 * TU^2        # J/K
-Tlim         = 900                                   # K
-temp_constr  = Tlim^4 - Tds^4
+spec_heat = 989 / LU^2 * TU^2                     # J/kg/K
+heat_cap = spec_heat * mass / LU^2 * TU^2        # J/K
+Tlim = 900                                   # K
+temp_constr = Tlim^4 - Tds^4
 
-opt_constr   = (1 - rho)/(eps_f + eps_b)
-heat_constr  = Cs/sigma
+opt_constr = (1 - rho)/(eps_f + eps_b)
+heat_constr = Cs/sigma
 
 
 # Definition of the pars vector
-pars         = [mu; epsilon; b']
-pars0         = [mu; 0; b']
+pars = [mu; epsilon; b']
+pars0 = [mu; 0; b']
 
 # Integration (MATLAB)
-t0       = 0
-tf       = 3600 * 24 * 30 * 12 * 3.5 / TU
+t0 = 0
+tf = 3600 * 24 * 30 * 12 * 3.5 / TU
 
 function F0(x)
     # Kepler equation
     #mu      = pars(1);
-    r       = x[1:3]
-    v       = x[4:6]
+    r = x[1:3]
+    v = x[4:6]
     
-    dvdt    = - mu / norm(r)^3 * r
-    dxdt    = [v; dvdt]
+    dvdt = - mu / norm(r)^3 * r
+    dxdt = [v; dvdt]
     return dxdt
 end
 
 function F1(x, β)
-    f           = atan(x[2], x[1])
-    rot_matrix  = [cos(f) -sin(f) 0;
+    f = atan(x[2], x[1])
+    rot_matrix = [cos(f) -sin(f) 0;
                     sin(f) cos(f) 0;
                     0 0 1 ]
-    dvdt    = rot_matrix * srpsail2D(x, β)
-    dxdt    = [0; 0; 0; dvdt]
+    dvdt = rot_matrix * srpsail2D(x, β)
+    dxdt = [0; 0; 0; dvdt]
     return dxdt
 end
 
@@ -150,15 +148,15 @@ for line in lines
 end
 
 # Interpolation of the initial guess
-t_inter  = matrix_data[1]
-x1       = matrix_data[2]
-x2       = matrix_data[3]
-x3       = matrix_data[4]
-x4       = matrix_data[5]
-x5       = matrix_data[6]
-x6       = matrix_data[7]
-x_inter  = hcat(x1[:], x2[:], x3[:], x4[:], x5[:], x6[:])
-u_inter  = zeros(size(x1))
+t_inter = matrix_data[1]
+x1 = matrix_data[2]
+x2 = matrix_data[3]
+x3 = matrix_data[4]
+x4 = matrix_data[5]
+x5 = matrix_data[6]
+x6 = matrix_data[7]
+x_inter = hcat(x1[:], x2[:], x3[:], x4[:], x5[:], x6[:])
+u_inter = zeros(size(x1))
 
 for i in 1:size(x_inter,1)
     u_inter[i] = control_ideal(x_inter[i,:])
