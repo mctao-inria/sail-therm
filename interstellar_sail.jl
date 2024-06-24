@@ -128,7 +128,7 @@ for i in 1:size(sol.times,1)
     x6_sol[i] = sol.state(sol.times[i])[6]
 end
 
-plot_traj = Plots.plot(x1_sol, x2_sol, size=(900, 1200))
+plot_traj = Plots.plot(x1_sol, x2_sol, size=(600, 600))
 display(plot_traj)
 savefig(plot_traj, "figures/plot_traj.pdf");
 
@@ -157,6 +157,8 @@ x5 = matrix_data[6]
 x6 = matrix_data[7]
 x_inter = hcat(x1[:], x2[:], x3[:], x4[:], x5[:], x6[:])
 u_inter = zeros(size(x1))
+
+plot_traj_matlab = Plots.plot(x1, x2, size=(600, 600))
 
 for i in 1:size(x_inter,1)
     u_inter[i] = control_ideal(x_inter[i,:])
