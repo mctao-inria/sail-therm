@@ -91,7 +91,7 @@ function F0(x)
     dx4 = - mu / normr^3 * x[1]
     dx5 = - mu / normr^3 * x[2]
     dx6 = - mu / normr^3 * x[3]
-    dx = [x[4] x[5] x[6] dx4 dx5 dx6]
+    dx = [x[4]; x[5]; x[6]; dx4; dx5; dx6]
     return dx
 end
 
