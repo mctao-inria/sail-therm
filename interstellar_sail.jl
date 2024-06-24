@@ -76,23 +76,25 @@ tf = 3600 * 24 * 30 * 12 * 3.5 / TU
 function F0(x)
     # Kepler equation
     #mu      = pars(1);
-    #r = x[1:3]
-    #v = x[4:6]
+    r = x[1:3]
+    v = x[4:6]
     
     #dv = - mu / norm(r)^3 * r
+    dv = [- mu / norm(r)^3 * r[1]; - mu / norm(r)^3 * r[2]; - mu / norm(r)^3 * r[3]]
     #dx = [v; dv]
-    #return dx
-    normr = norm(x[1:3])
+    dx = [v[1]; v[2]; v[3]; dv[1]; dv[2]; dv[3]]
+    return dx
+    #normr = norm(x[1:3])
     #normr = (x[1]^2 + x[2]^2 + x[3]^3)^(0.5)
     #dx = zeros(6,1)
     #dx[1] = x[4]
     #dx[2] = x[5]
     #dx[3] = x[6]
-    dx4 = - mu / normr^3 * x[1]
-    dx5 = - mu / normr^3 * x[2]
-    dx6 = - mu / normr^3 * x[3]
-    dx = [x[4]; x[5]; x[6]; dx4; dx5; dx6]
-    return dx
+    #dx4 = - mu / normr^3 * x[1]
+    #dx5 = - mu / normr^3 * x[2]
+    #dx6 = - mu / normr^3 * x[3]
+    #dx = [x[4]; x[5]; x[6]; dx4; dx5; dx6]
+    #return dx
 end
 
 function F1(x, β)
