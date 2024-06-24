@@ -76,12 +76,23 @@ tf = 3600 * 24 * 30 * 12 * 3.5 / TU
 function F0(x)
     # Kepler equation
     #mu      = pars(1);
-    r = x[1:3]
-    v = x[4:6]
+    #r = x[1:3]
+    #v = x[4:6]
     
-    dvdt = - mu / norm(r)^3 * r
-    dxdt = [v; dvdt]
-    return dxdt
+    #dv = - mu / norm(r)^3 * r
+    #dx = [v; dv]
+    #return dx
+    normr = norm(x[1:3])
+    #normr = (x[1]^2 + x[2]^2 + x[3]^3)^(0.5)
+    #dx = zeros(6,1)
+    #dx[1] = x[4]
+    #dx[2] = x[5]
+    #dx[3] = x[6]
+    dx4 = - mu / normr^3 * x[1]
+    dx5 = - mu / normr^3 * x[2]
+    dx6 = - mu / normr^3 * x[3]
+    dx = [x[4] x[5] x[6] dx4 dx5 dx6]
+    return dx
 end
 
 function F1(x, β)
@@ -128,9 +139,15 @@ for i in 1:size(sol.times,1)
     x6_sol[i] = sol.state(sol.times[i])[6]
 end
 
+
 plot_traj = Plots.plot(x1_sol, x2_sol, size=(600, 600))
 display(plot_traj)
 savefig(plot_traj, "figures/plot_traj.pdf");
+
+plot_x1 = Plots.plot(sol.times, x1_sol, size=(600, 600))
+display(plot_x1)
+savefig(plot_x1, "figures/plot_x1.pdf");
+
 
 # Read of the initial guess from Matlab
 filename = "matrix.txt"
