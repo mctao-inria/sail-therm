@@ -81,7 +81,7 @@ function F0(x)
     
     #dv = - mu / norm(r)^3 * r
     dv = [- mu / norm(r)^3 * r[1]; - mu / norm(r)^3 * r[2]; - mu / norm(r)^3 * r[3]]
-    #dx = [v; dv]
+    dx = [v; dv]
     dx = [v[1]; v[2]; v[3]; dv[1]; dv[2]; dv[3]]
     return dx
     #normr = norm(x[1:3])
