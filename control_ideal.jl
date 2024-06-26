@@ -7,10 +7,11 @@ function adjoint2idealsail(theta)
 end
 
 function control_ideal(x)
-    r        = x[1:3]
-    v        = x[4:6]
-
-    acos_arg = dot(v / norm(v), r / norm(r))
+    r  = x[1:3]
+    v = x[4:6]
+    normr = sqrt( r[1]^2 + r[2]^2 + r[3]^2 )
+    normv = sqrt( v[1]^2 + v[2]^2 + v[3]^2 )
+    acos_arg = ( v[1] * r[1] + v[2] * r[2] + v[3] * r[3] ) / normv / normr
     if acos_arg > 1
         acos_arg = 1
     end

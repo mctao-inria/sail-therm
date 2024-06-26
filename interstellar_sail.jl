@@ -82,11 +82,12 @@ end
 
 function F1(x, β)
     #f = atan(x[2], x[1])
-    nx = sqrt( x[1]^2 + x[2]^2 )
+    nx = sqrt( x[1]^2 + x[2]^2 + x[3]^2 )
     cf = x[1] / nx
-    rot_matrix = [cf -sin(f) 0
-                  sin(f)  cos(f) 0
-                  0       0      1]
+    sf = x[2] / nx
+    rot_matrix = [cf -sf  0
+                  sf  cf  0
+                  0   0   1]
     dvdt = rot_matrix * srpsail2D(x, β)
     dxdt = [0; 0; 0; dvdt]
     return dxdt
@@ -94,19 +95,21 @@ end
 
 @def ocp begin
     t ∈ [ t0, tf ], time
-    x = (r₁, r₂, r₃, v₁, v₂, v₃) ∈ R⁶, state
+    #x = (r₁, r₂, r₃, v₁, v₂, v₃) ∈ R⁶, state
+    x ∈ R⁶, state
     β ∈ R, control
     -π/2 ≤ β(t) ≤ π/2 
     x(t0) == x0
     ẋ(t) == F0(x(t)) + F1(x(t), β(t)) 
-    cos(β(t)) / ( r₁(t)^2 + r₂(t)^2 + r₃(t)^2 ) * opt_constr * heat_constr + temp_constr ≤ 0
-    -mu / sqrt( r₁(tf)^2 + r₂(tf)^2 + r₃(tf)^2 ) + 1/2 * ( v₁(tf)^2 + v₂(tf)^2 + v₃(tf)^2 ) → max
+    #cos(β(t)) / ( r₁(t)^2 + r₂(t)^2 + r₃(t)^2 ) * opt_constr * heat_constr + temp_constr ≤ 0
+    cos(β(t)) / ( x₁(t)^2 + x₂(t)^2 + x₃(t)^2 ) * opt_constr * heat_constr + temp_constr ≤ 0
+    -mu / sqrt( x₁(tf)^2 + x₂(tf)^2 + x₃(tf)^2 ) + 1/2 * ( x₄(tf)^2 + x₅(tf)^2 + x₆(tf)^2 ) → max
 end
 
-#sol = solve(ocp)
-#plot_sol = Plots.plot(sol, size=(900, 1200))
-#display(plot_sol)
-#savefig(plot_sol, "figures/plot_sol.pdf");
+sol = solve(ocp)
+plot_sol = Plots.plot(sol, size=(900, 1200))
+display(plot_sol)
+savefig(plot_sol, "figures/plot_sol_without_initial_guess.pdf");
 
 ## x1_sol = zeros(size(sol.times))
 ## x2_sol = zeros(size(sol.times))
@@ -212,6 +215,7 @@ initial_guess = (state=x, control=β)
 
 # Direct
 sol = solve(ocp, init=initial_guess)
-#sol = solve(ocp)
 
-#plot(sol, size=(600, 450))
+plot_sol = Plots.plot(sol, size=(900, 1200))
+display(plot_sol)
+savefig(plot_sol, "figures/plot_sol_with_initial_guess.pdf");
