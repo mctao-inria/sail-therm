@@ -42,7 +42,7 @@ Area = 20 * 6 / LU^2             # Vane area * quantity of vanes
 mass = Area / Am                 # Mass of the satellite
 temp0 = 293.15                    # Initial temperature of the satellite
 Csrp = Cs / light_speed
-epsilon = Am * Csrp
+epsilon = 1e-3 * Am * Csrp
 
 # Initial orbit data
 rpsail = 0.15                     # Periapsis distance elliptic orbit
@@ -68,7 +68,7 @@ pars0 = [mu; 0; b']
 
 # Integration (MATLAB)
 t0 = 0
-tf = 3600 * 24 * 30 * 12 * 3.5 / TU
+tf = 3600 * 24 * 30 * 12 * 3.5 / TU / 1e3
 
 function F0(x)
     # Kepler equation
@@ -111,29 +111,11 @@ plot_sol = Plots.plot(sol, size=(900, 1200))
 display(plot_sol)
 savefig(plot_sol, "figures/plot_sol_without_initial_guess.pdf");
 
-## x1_sol = zeros(size(sol.times))
-## x2_sol = zeros(size(sol.times))
-## x3_sol = zeros(size(sol.times))
-## x4_sol = zeros(size(sol.times))
-## x5_sol = zeros(size(sol.times))
-## x6_sol = zeros(size(sol.times))
-## 
-## for i in 1:size(sol.times,1)
-##     x1_sol[i] = sol.state(sol.times[i])[1]
-##     x2_sol[i] = sol.state(sol.times[i])[2]
-##     x3_sol[i] = sol.state(sol.times[i])[3]
-##     x4_sol[i] = sol.state(sol.times[i])[4]
-##     x5_sol[i] = sol.state(sol.times[i])[5]
-##     x6_sol[i] = sol.state(sol.times[i])[6]
-## end
-## 
-## plot_traj = Plots.plot(x1_sol, x2_sol, size=(600, 600))
-## display(plot_traj)
-## savefig(plot_traj, "figures/plot_traj.pdf");
-## 
-## plot_x1 = Plots.plot(sol.times, x1_sol, size=(600, 600))
-## display(plot_x1)
-## savefig(plot_x1, "figures/plot_x1.pdf");
+sol = sol.state.(sol.times)
+Nsol = length(sol)
+plot_traj2D = Plots.plot([ sol[i][1] for i ∈ 1:Nsol ], [ sol[i][2] for i ∈ 1:Nsol ], size=(900, 1200))
+display(plot_traj2D)
+savefig(plot_traj2D, "figures/plot_traj_without_initial_guess.pdf");
 
 # Read of the initial guess from Matlab
 filename = "matrix.txt"
@@ -219,3 +201,9 @@ sol = solve(ocp, init=initial_guess)
 plot_sol = Plots.plot(sol, size=(900, 1200))
 display(plot_sol)
 savefig(plot_sol, "figures/plot_sol_with_initial_guess.pdf");
+
+x_sol = sol.state.(sol.times)
+Nsize = length(x_sol)
+plot_traj2D = Plots.plot([ x_sol[i][1] for i ∈ 1:Nsize ], [ x_sol[i][2] for i ∈ 1:Nsize ], size=(900, 1200))
+display(plot_traj2D)
+savefig(plot_traj2D, "figures/plot_traj_with_initial_guess.pdf");
