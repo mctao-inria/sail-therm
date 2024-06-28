@@ -56,7 +56,7 @@ xEarth = [rE; vE]
 # Heat parameters for Kapton material
 spec_heat = 989 / LU^2 * TU^2                     # J/kg/K
 heat_cap = spec_heat * mass / LU^2 * TU^2        # J/K
-Tlim = 800                                   # K
+Tlim = 700                                   # K
 temp_constr = Tlim^4 - Tds^4
 
 opt_constr = (1 - rho)/(eps_f + eps_b)
@@ -68,7 +68,7 @@ pars0 = [mu; 0; b']
 
 # Integration (MATLAB)
 t0 = 0
-tf = 3600 * 24 * 30 * 12 * 3.5 / TU / 9
+tf = 3600 * 24 * 30 * 12 * 3.5 / TU 
 
 function F0(x)
     # Kepler equation
@@ -118,10 +118,10 @@ savefig(plot_sol, "figures/plot_sol_without_initial_guess.pdf");
 
 sol = sol.state.(sol.times)
 Nsol = length(sol)
-plot_traj2D = Plots.plot([ sol[i][1] for i ∈ 1:Nsol ], [ sol[i][2] for i ∈ 1:Nsol ], size=(900, 1200))
+plot_traj2D = Plots.plot([ sol[i][1] for i ∈ 1:Nsol ], [ sol[i][2] for i ∈ 1:Nsol ], size=(600, 600), label="direct without initial guess")
 savefig(plot_traj2D, "figures/plot_traj_without_initial_guess.pdf");
 
-
+plot_traj_matlab = Plots.plot!(matrix_data[2], matrix_data[3], size=(600, 600), label="local-optimal")
 
 
 ###########################################################################################################################################
@@ -148,7 +148,7 @@ for line in lines
 end
 
 # Interpolation of the initial guess
-#plot_traj_matlab = Plots.plot(matrix_data[2], matrix_data[3], size=(600, 600))
+# plot_traj_matlab = Plots.plot(matrix_data[2], matrix_data[3], size=(600, 600))
 t_inter = matrix_data[1]
 N = length(t_inter)
 x_inter = [ [ matrix_data[i][j] for i ∈ 2:7 ] for j ∈ 1:N ]
@@ -214,5 +214,7 @@ savefig(plot_sol, "figures/plot_sol_with_initial_guess.pdf");
 
 x_sol = sol.state.(sol.times)
 Nsize = length(x_sol)
-plot_traj2D = Plots.plot([ x_sol[i][1] for i ∈ 1:Nsize ], [ x_sol[i][2] for i ∈ 1:Nsize ], size=(900, 1200))
+plot_traj2D = Plots.plot([ x_sol[i][1] for i ∈ 1:Nsize ], [ x_sol[i][2] for i ∈ 1:Nsize ], size=(600, 600), label="direct with initial guess")
 savefig(plot_traj2D, "figures/plot_traj_with_initial_guess.pdf");
+plot_traj_matlab = Plots.plot!(matrix_data[2], matrix_data[3], size=(600, 600), label="local-optimal")
+
