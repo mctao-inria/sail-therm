@@ -42,7 +42,7 @@ Area = 20 * 6 / LU^2             # Vane area * quantity of vanes
 mass = Area / Am                 # Mass of the satellite
 temp0 = 293.15                    # Initial temperature of the satellite
 Csrp = Cs / light_speed
-epsilon = 1e-3 * Am * Csrp
+epsilon = 1e-2 * Am * Csrp
 
 # Initial orbit data
 rpsail = 0.15                     # Periapsis distance elliptic orbit
@@ -56,7 +56,7 @@ xEarth = [rE; vE]
 # Heat parameters for Kapton material
 spec_heat = 989 / LU^2 * TU^2                     # J/kg/K
 heat_cap = spec_heat * mass / LU^2 * TU^2        # J/K
-Tlim = 900                                   # K
+Tlim = 800                                   # K
 temp_constr = Tlim^4 - Tds^4
 
 opt_constr = (1 - rho)/(eps_f + eps_b)
@@ -68,7 +68,7 @@ pars0 = [mu; 0; b']
 
 # Integration (MATLAB)
 t0 = 0
-tf = 3600 * 24 * 30 * 12 * 3.5 / TU / 1e3
+tf = 3600 * 24 * 30 * 12 * 3.5 / TU / 9
 
 function F0(x)
     # Kepler equation
@@ -98,6 +98,12 @@ end
     #x = (r₁, r₂, r₃, v₁, v₂, v₃) ∈ R⁶, state
     x ∈ R⁶, state
     β ∈ R, control
+    -10 ≤ x₁(t) ≤ 10,   (1)
+    -10 ≤ x₂(t) ≤ 10,    (2)
+    -1 ≤ x₃(t) ≤ 1,      (3)
+    -10 ≤ x₄(t) ≤ 10,    (4)
+    -10 ≤ x₅(t) ≤ 10,    (5)
+    -1 ≤ x₆(t) ≤ 1,      (6)
     -π/2 ≤ β(t) ≤ π/2 
     x(t0) == x0
     ẋ(t) == F0(x(t)) + F1(x(t), β(t)) 
@@ -108,14 +114,23 @@ end
 
 sol = solve(ocp)
 plot_sol = Plots.plot(sol, size=(900, 1200))
-display(plot_sol)
 savefig(plot_sol, "figures/plot_sol_without_initial_guess.pdf");
 
 sol = sol.state.(sol.times)
 Nsol = length(sol)
 plot_traj2D = Plots.plot([ sol[i][1] for i ∈ 1:Nsol ], [ sol[i][2] for i ∈ 1:Nsol ], size=(900, 1200))
-display(plot_traj2D)
 savefig(plot_traj2D, "figures/plot_traj_without_initial_guess.pdf");
+
+
+
+
+###########################################################################################################################################
+###########################################################################################################################################
+###########################################################################################################################################
+###########################################################################################################################################
+###########################################################################################################################################
+
+
 
 # Read of the initial guess from Matlab
 filename = "matrix.txt"
@@ -133,7 +148,7 @@ for line in lines
 end
 
 # Interpolation of the initial guess
-plot_traj_matlab = Plots.plot(matrix_data[2], matrix_data[3], size=(600, 600))
+#plot_traj_matlab = Plots.plot(matrix_data[2], matrix_data[3], size=(600, 600))
 t_inter = matrix_data[1]
 N = length(t_inter)
 x_inter = [ [ matrix_data[i][j] for i ∈ 2:7 ] for j ∈ 1:N ]
@@ -149,46 +164,42 @@ itp_u = LinearInterpolation(t_inter, u_inter)
 
 ## Figures
 # Create individual plots
-plotx1 = Plots.plot(t_inter, itp1.(t_inter), grid = "off", framestyle = :box, legend = false)
-xlabel!("Time [0]")
-ylabel!("r₁ [-]")
+# plotx1 = Plots.plot(t_inter, itp1.(t_inter), grid = "off", framestyle = :box, legend = false)
+# xlabel!("Time [0]")
+# ylabel!("r₁ [-]")
 
-plotx2 = Plots.plot(t_inter, itp2.(t_inter), grid = "off", framestyle = :box, legend = false)
-xlabel!("Time [0]")
-ylabel!("r₂ [-]")
+# plotx2 = Plots.plot(t_inter, itp2.(t_inter), grid = "off", framestyle = :box, legend = false)
+# xlabel!("Time [0]")
+# ylabel!("r₂ [-]")
 
-plotx3 = Plots.plot(t_inter, itp3.(t_inter), grid = "off", framestyle = :box, legend = false)
-xlabel!("Time [0]")
-ylabel!("r₃ [-]")
+# plotx3 = Plots.plot(t_inter, itp3.(t_inter), grid = "off", framestyle = :box, legend = false)
+# xlabel!("Time [0]")
+# ylabel!("r₃ [-]")
 
-plotx4 = Plots.plot(t_inter, itp4.(t_inter), grid = "off", framestyle = :box, legend = false)
-xlabel!("Time [0]")
-ylabel!("v₁ [-]")
+# plotx4 = Plots.plot(t_inter, itp4.(t_inter), grid = "off", framestyle = :box, legend = false)
+# xlabel!("Time [0]")
+# ylabel!("v₁ [-]")
 
-plotx5 = Plots.plot(t_inter, itp5.(t_inter), grid = "off", framestyle = :box, legend = false)
-xlabel!("Time [0]")
-ylabel!("v₂ [-]")
+# plotx5 = Plots.plot(t_inter, itp5.(t_inter), grid = "off", framestyle = :box, legend = false)
+# xlabel!("Time [0]")
+# ylabel!("v₂ [-]")
 
-plotx6 = Plots.plot(t_inter, itp6.(t_inter), grid = "off", framestyle = :box, legend = false)
-xlabel!("Time [0]")
-ylabel!("v₃ [-]")
+# plotx6 = Plots.plot(t_inter, itp6.(t_inter), grid = "off", framestyle = :box, legend = false)
+# xlabel!("Time [0]")
+# ylabel!("v₃ [-]")
 
 # Tile the plots in a 3x2 grid
-plotall = plot(plotx1, plotx2, plotx3, plotx4, plotx5, plotx6, layout = (3, 2), size = (1600, 1600));
+# plotall = plot(plotx1, plotx2, plotx3, plotx4, plotx5, plotx6, layout = (3, 2), size = (1600, 1600));
 
 # Display the tiled plot
-display(plotall);
-savefig(plotall, "figures/plotall.pdf");
+# display(plotall);
+# savefig(plotall, "figures/plotall.pdf");
 
 # Control 
-Plots.plot(t_inter, itp_u.(t_inter), grid = "off", framestyle = :box, legend = false)
-xlabel!("Time [0]")
-ylabel!("u [-]")
-savefig(plotall, "figures/control.pdf");
-
-#function itp_x(t)
-#    return [itp1(t), itp2(t), itp3(t), itp4(t), itp5(t), itp6(t)]
-#end
+# Plots.plot(t_inter, itp_u.(t_inter), grid = "off", framestyle = :box, legend = false)
+# xlabel!("Time [0]")
+# ylabel!("u [-]")
+# savefig(plotall, "figures/control.pdf");
 
 x(t) = [itp1(t), itp2(t), itp3(t), itp4(t), itp5(t), itp6(t)]
 β(t)  = itp_u(t)
@@ -199,11 +210,9 @@ initial_guess = (state=x, control=β)
 sol = solve(ocp, init=initial_guess)
 
 plot_sol = Plots.plot(sol, size=(900, 1200))
-display(plot_sol)
 savefig(plot_sol, "figures/plot_sol_with_initial_guess.pdf");
 
 x_sol = sol.state.(sol.times)
 Nsize = length(x_sol)
 plot_traj2D = Plots.plot([ x_sol[i][1] for i ∈ 1:Nsize ], [ x_sol[i][2] for i ∈ 1:Nsize ], size=(900, 1200))
-display(plot_traj2D)
 savefig(plot_traj2D, "figures/plot_traj_with_initial_guess.pdf");
