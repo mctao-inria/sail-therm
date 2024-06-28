@@ -119,24 +119,24 @@ end
     #x = (r₁, r₂, r₃, v₁, v₂, v₃) ∈ R⁶, state
     x ∈ R⁶, state
     β ∈ R, control
-    -30 ≤ x₁(t) ≤ 30,   (1)
+    -30 ≤ x₁(t) ≤ 30
     -30 ≤ x₂(t) ≤ 30,    (2)
     -1 ≤ x₃(t) ≤ 1,      (3)
     -30 ≤ x₄(t) ≤ 30,    (4)
     -30 ≤ x₅(t) ≤ 30,    (5)
     -1 ≤ x₆(t) ≤ 1,      (6)
-    #0.01 ≤ abs(x₁(t)),   (7)
-    #0.01 ≤ abs(x₂(t)),   (8)
+    #(x₁(t)^2 + x₂(t)^2 + x₃(t)^2) ≥ 0.01^2,   (7)
     -π/2 ≤ β(t) ≤ π/2 
     x(t0) == x0
     ẋ(t) == F0(x(t)) + F1(x(t), β(t)) 
     #cos(β(t)) / ( r₁(t)^2 + r₂(t)^2 + r₃(t)^2 ) * opt_constr * heat_constr + temp_constr ≤ 0
     cos(β(t)) / ( x₁(t)^2 + x₂(t)^2 + x₃(t)^2 ) * opt_constr * heat_constr + temp_constr ≤ 0
-    -(-mu / sqrt( x₁(tf)^2 + x₂(tf)^2 + x₃(tf)^2 ) + 1/2 * ( x₄(tf)^2 + x₅(tf)^2 + x₆(tf)^2 )) ≤ 0
+    #-mu / sqrt( x₁(tf)^2 + x₂(tf)^2 + x₃(tf)^2 ) + 1/2 * ( x₄(tf)^2 + x₅(tf)^2 + x₆(tf)^2 ) ≥ 0
     -mu / sqrt( x₁(tf)^2 + x₂(tf)^2 + x₃(tf)^2 ) + 1/2 * ( x₄(tf)^2 + x₅(tf)^2 + x₆(tf)^2 ) → max
+    #x₄(tf)^2 + x₅(tf)^2 + x₆(tf)^2  → max
 end
 
-sol = solve(ocp)
+sol = solve(ocp, grid_size = 200)
 plot_sol = Plots.plot(sol, size=(900, 1200))
 savefig(plot_sol, "figures/plot_sol_without_initial_guess.pdf");
 
@@ -220,7 +220,7 @@ x(t) = [itp1(t), itp2(t), itp3(t), itp4(t), itp5(t), itp6(t)]
 initial_guess = (state=x, control=β)
 
 # Direct
-sol = solve(ocp, init=initial_guess)
+sol = solve(ocp, init=initial_guess)#, grid_size = 200)
 
 plot_sol = Plots.plot(sol, size=(900, 1200))
 savefig(plot_sol, "figures/plot_sol_with_initial_guess.pdf");
@@ -234,3 +234,5 @@ plot_traj_matlab = Plots.plot!(matrix_data[2], matrix_data[3], size=(600, 600), 
 β_sol = sol.control.(sol.times)
 plot_temperature = Plots.plot(sol.times, temperature.(x_sol, β_sol), size=(600, 600), label="sail temperature")
 plot!([0, sol.times[end]], [Tlim, Tlim], label="temperature limit")
+
+sol = solve(ocp, init=sol, grid_size = 300)
