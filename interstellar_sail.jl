@@ -66,6 +66,21 @@ heat_constr = Cs/sigma
 pars = [mu; epsilon; b']
 pars0 = [mu; 0; b']
 
+# Read of the initial guess from Matlab
+filename = "matrix.txt"
+file = open(filename, "r")
+file_content = read(file, String)
+close(file)
+lines = split(file_content, "\n")
+matrix_data = []
+for line in lines
+    # Split each line by spaces and convert to float
+    if !isempty(line)
+        row = [parse(Float64, x) for x in split(line)]
+        push!(matrix_data, row)
+    end
+end
+
 # Integration (MATLAB)
 t0 = 0
 tf = 3600 * 24 * 30 * 12 * 3.5 / TU 
@@ -92,6 +107,10 @@ function F1(x, β)
     dxdt = [0; 0; 0; dvdt]
     return dxdt
 end
+
+
+
+
 
 @def ocp begin
     t ∈ [ t0, tf ], time
@@ -132,20 +151,7 @@ plot_traj_matlab = Plots.plot!(matrix_data[2], matrix_data[3], size=(600, 600), 
 
 
 
-# Read of the initial guess from Matlab
-filename = "matrix.txt"
-file = open(filename, "r")
-file_content = read(file, String)
-close(file)
-lines = split(file_content, "\n")
-matrix_data = []
-for line in lines
-    # Split each line by spaces and convert to float
-    if !isempty(line)
-        row = [parse(Float64, x) for x in split(line)]
-        push!(matrix_data, row)
-    end
-end
+
 
 # Interpolation of the initial guess
 # plot_traj_matlab = Plots.plot(matrix_data[2], matrix_data[3], size=(600, 600))
