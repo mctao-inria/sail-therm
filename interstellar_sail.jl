@@ -57,7 +57,7 @@ xEarth = [rE; vE]
 spec_heat = 989 / LU^2 * TU^2                     # J/kg/K
 heat_cap = spec_heat * mass / LU^2 * TU^2        # J/K
 Tlim = 700                                   # K
-temp_constr = Tlim^4 - Tds^4
+temp_constr = Tds^4 - Tlim^4 #Tlim^4 - Tds^4 
 
 opt_constr = (1 - rho)/(eps_f + eps_b)
 heat_constr = Cs/sigma
@@ -109,25 +109,30 @@ function F1(x, β)
 end
 
 
-
-
+function temperature(x, β)
+    temp = (Tds^4 + cos(β) / ( x[1]^2 + x[2]^2 + x[3]^2 ) * opt_constr * heat_constr)^(1/4)
+    return temp
+end
 
 @def ocp begin
     t ∈ [ t0, tf ], time
     #x = (r₁, r₂, r₃, v₁, v₂, v₃) ∈ R⁶, state
     x ∈ R⁶, state
     β ∈ R, control
-    -10 ≤ x₁(t) ≤ 10,   (1)
-    -10 ≤ x₂(t) ≤ 10,    (2)
+    -30 ≤ x₁(t) ≤ 30,   (1)
+    -30 ≤ x₂(t) ≤ 30,    (2)
     -1 ≤ x₃(t) ≤ 1,      (3)
-    -10 ≤ x₄(t) ≤ 10,    (4)
-    -10 ≤ x₅(t) ≤ 10,    (5)
+    -30 ≤ x₄(t) ≤ 30,    (4)
+    -30 ≤ x₅(t) ≤ 30,    (5)
     -1 ≤ x₆(t) ≤ 1,      (6)
+    #0.01 ≤ abs(x₁(t)),   (7)
+    #0.01 ≤ abs(x₂(t)),   (8)
     -π/2 ≤ β(t) ≤ π/2 
     x(t0) == x0
     ẋ(t) == F0(x(t)) + F1(x(t), β(t)) 
     #cos(β(t)) / ( r₁(t)^2 + r₂(t)^2 + r₃(t)^2 ) * opt_constr * heat_constr + temp_constr ≤ 0
     cos(β(t)) / ( x₁(t)^2 + x₂(t)^2 + x₃(t)^2 ) * opt_constr * heat_constr + temp_constr ≤ 0
+    -(-mu / sqrt( x₁(tf)^2 + x₂(tf)^2 + x₃(tf)^2 ) + 1/2 * ( x₄(tf)^2 + x₅(tf)^2 + x₆(tf)^2 )) ≤ 0
     -mu / sqrt( x₁(tf)^2 + x₂(tf)^2 + x₃(tf)^2 ) + 1/2 * ( x₄(tf)^2 + x₅(tf)^2 + x₆(tf)^2 ) → max
 end
 
@@ -135,14 +140,16 @@ sol = solve(ocp)
 plot_sol = Plots.plot(sol, size=(900, 1200))
 savefig(plot_sol, "figures/plot_sol_without_initial_guess.pdf");
 
-sol = sol.state.(sol.times)
-Nsol = length(sol)
-plot_traj2D = Plots.plot([ sol[i][1] for i ∈ 1:Nsol ], [ sol[i][2] for i ∈ 1:Nsol ], size=(600, 600), label="direct without initial guess")
+x_sol = sol.state.(sol.times)
+Nsol = length(x_sol)
+plot_traj2D = Plots.plot([ x_sol[i][1] for i ∈ 1:Nsol ], [ x_sol[i][2] for i ∈ 1:Nsol ], size=(600, 600), label="direct without initial guess")
 savefig(plot_traj2D, "figures/plot_traj_without_initial_guess.pdf");
 
 plot_traj_matlab = Plots.plot!(matrix_data[2], matrix_data[3], size=(600, 600), label="local-optimal")
 
-
+β_sol = sol.control.(sol.times)
+plot_temperature = Plots.plot(sol.times, temperature.(x_sol, β_sol), size=(600, 600), label="sail temperature")
+plot!([0, sol.times[end]], [Tlim, Tlim], label="temperature limit")
 ###########################################################################################################################################
 ###########################################################################################################################################
 ###########################################################################################################################################
@@ -224,3 +231,6 @@ plot_traj2D = Plots.plot([ x_sol[i][1] for i ∈ 1:Nsize ], [ x_sol[i][2] for i 
 savefig(plot_traj2D, "figures/plot_traj_with_initial_guess.pdf");
 plot_traj_matlab = Plots.plot!(matrix_data[2], matrix_data[3], size=(600, 600), label="local-optimal")
 
+β_sol = sol.control.(sol.times)
+plot_temperature = Plots.plot(sol.times, temperature.(x_sol, β_sol), size=(600, 600), label="sail temperature")
+plot!([0, sol.times[end]], [Tlim, Tlim], label="temperature limit")
