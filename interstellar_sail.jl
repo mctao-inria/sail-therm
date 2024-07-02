@@ -62,9 +62,13 @@ temp_constr = Tds^4 - Tlim^4 #Tlim^4 - Tds^4
 opt_constr = (1 - rho)/(eps_f + eps_b)
 heat_constr = Cs/sigma
 
+# Integration 
+t0 = 0
+tf = 3600 * 24 * 30 * 12 * 3.5 / TU 
+
 # Definition of the pars vector
-pars = [mu; epsilon; b']
-pars0 = [mu; 0; b']
+#pars = [mu; epsilon; b']
+#pars0 = [mu; 0; b']
 
 # Read of the initial guess from Matlab
 filename = "matrix.txt"
@@ -81,9 +85,39 @@ for line in lines
     end
 end
 
-# Integration (MATLAB)
-t0 = 0
-tf = 3600 * 24 * 30 * 12 * 3.5 / TU 
+# Interpolation of the initial guess
+# plot_traj_matlab = Plots.plot(matrix_data[2], matrix_data[3], size=(600, 600))
+t_inter = matrix_data[1]
+N = length(t_inter)
+x_inter = [ [ matrix_data[i][j] for i ∈ 2:7 ] for j ∈ 1:N ]
+u_inter = control_ideal.(x_inter)
+
+itp1 = LinearInterpolation(t_inter, [ x_inter[i][1] for i ∈ 1:N ])
+itp2 = LinearInterpolation(t_inter, [ x_inter[i][2] for i ∈ 1:N ])
+itp3 = LinearInterpolation(t_inter, [ x_inter[i][3] for i ∈ 1:N ])
+itp4 = LinearInterpolation(t_inter, [ x_inter[i][4] for i ∈ 1:N ])
+itp5 = LinearInterpolation(t_inter, [ x_inter[i][5] for i ∈ 1:N ])
+itp6 = LinearInterpolation(t_inter, [ x_inter[i][6] for i ∈ 1:N ])
+itp_u = LinearInterpolation(t_inter, u_inter)
+
+# Integration from a random point x_init 
+N_init = 1
+time_init = t_inter[N_init]
+x0 = x_inter[N_init]
+
+N_final = 200
+
+t0 = time_init
+tf = time_init[N_final]
+
+itp1 = LinearInterpolation(t_inter[N_init:N_final], [ x_inter[i][1] for i ∈ N_init:N_final ])
+itp2 = LinearInterpolation(t_inter[N_init:N_final], [ x_inter[i][2] for i ∈ N_init:N_final ])
+itp3 = LinearInterpolation(t_inter[N_init:N_final], [ x_inter[i][3] for i ∈ N_init:N_final ])
+itp4 = LinearInterpolation(t_inter[N_init:N_final], [ x_inter[i][4] for i ∈ N_init:N_final ])
+itp5 = LinearInterpolation(t_inter[N_init:N_final], [ x_inter[i][5] for i ∈ N_init:N_final ])
+itp6 = LinearInterpolation(t_inter[N_init:N_final], [ x_inter[i][6] for i ∈ N_init:N_final ])
+itp_u = LinearInterpolation(t_inter[N_init:N_final], u_inter[N_init:N_final])
+
 
 function F0(x)
     # Kepler equation
@@ -115,28 +149,36 @@ function temperature(x, β)
 end
 
 @def ocp begin
+    #tf ∈ R, variable
     t ∈ [ t0, tf ], time
     #x = (r₁, r₂, r₃, v₁, v₂, v₃) ∈ R⁶, state
     x ∈ R⁶, state
     β ∈ R, control
-    -30 ≤ x₁(t) ≤ 30
-    -30 ≤ x₂(t) ≤ 30,    (2)
-    -1 ≤ x₃(t) ≤ 1,      (3)
-    -30 ≤ x₄(t) ≤ 30,    (4)
-    -30 ≤ x₅(t) ≤ 30,    (5)
-    -1 ≤ x₆(t) ≤ 1,      (6)
-    #(x₁(t)^2 + x₂(t)^2 + x₃(t)^2) ≥ 0.01^2,   (7)
-    -π/2 ≤ β(t) ≤ π/2 
+    # -60 ≤ x₁(t) ≤ 60
+    # -60 ≤ x₂(t) ≤ 60
+    -1 ≤ x₃(t) ≤ 1
+    -60 ≤ x₄(t) ≤ 60
+    -60 ≤ x₅(t) ≤ 60
+    -1 ≤ x₆(t) ≤ 1
+    # (x₁(t)^2 + x₂(t)^2 + x₃(t)^2) ≥ 0.015^2,   (7)
+    0.02^2 ≤ x₁(t)^2 ≤ 60^2
+    0.02^2 ≤ x₂(t)^2 ≤ 60^2
+    -π/2 * 0.8 ≤ β(t) ≤ π/2 * 0.8
     x(t0) == x0
     ẋ(t) == F0(x(t)) + F1(x(t), β(t)) 
     #cos(β(t)) / ( r₁(t)^2 + r₂(t)^2 + r₃(t)^2 ) * opt_constr * heat_constr + temp_constr ≤ 0
     cos(β(t)) / ( x₁(t)^2 + x₂(t)^2 + x₃(t)^2 ) * opt_constr * heat_constr + temp_constr ≤ 0
-    #-mu / sqrt( x₁(tf)^2 + x₂(tf)^2 + x₃(tf)^2 ) + 1/2 * ( x₄(tf)^2 + x₅(tf)^2 + x₆(tf)^2 ) ≥ 0
-    -mu / sqrt( x₁(tf)^2 + x₂(tf)^2 + x₃(tf)^2 ) + 1/2 * ( x₄(tf)^2 + x₅(tf)^2 + x₆(tf)^2 ) → max
-    #x₄(tf)^2 + x₅(tf)^2 + x₆(tf)^2  → max
+    -mu / sqrt( x₁(tf)^2 + x₂(tf)^2 + x₃(tf)^2 ) + 1/2 * ( x₄(tf)^2 + x₅(tf)^2 + x₆(tf)^2 ) ≥ 1e2
+    #-mu / sqrt( x₁(tf)^2 + x₂(tf)^2 + x₃(tf)^2 ) + 1/2 * ( x₄(tf)^2 + x₅(tf)^2 + x₆(tf)^2 ) → max
+    x₄(tf)^2 + x₅(tf)^2 + x₆(tf)^2  → max
+    #tf → min
 end
 
-sol = solve(ocp, grid_size = 200)
+###########################################################################################################################################
+#                           WITHOUT INITIAL GUESS
+###########################################################################################################################################
+
+sol = solve(ocp, grid_size = 100)
 plot_sol = Plots.plot(sol, size=(900, 1200))
 savefig(plot_sol, "figures/plot_sol_without_initial_guess.pdf");
 
@@ -150,30 +192,49 @@ plot_traj_matlab = Plots.plot!(matrix_data[2], matrix_data[3], size=(600, 600), 
 β_sol = sol.control.(sol.times)
 plot_temperature = Plots.plot(sol.times, temperature.(x_sol, β_sol), size=(600, 600), label="sail temperature")
 plot!([0, sol.times[end]], [Tlim, Tlim], label="temperature limit")
+
+
 ###########################################################################################################################################
-###########################################################################################################################################
-###########################################################################################################################################
-###########################################################################################################################################
+#                           WITH INITIAL GUESS
 ###########################################################################################################################################
 
 
 
+x(t) = [itp1(t), itp2(t), itp3(t), itp4(t), itp5(t), itp6(t)]
+β(t)  = itp_u(t)
+# Initial guess
+initial_guess = (state=x, control=β)
 
+# Direct
+sol = solve(ocp, init=initial_guess)#, grid_size = 200)
 
-# Interpolation of the initial guess
-# plot_traj_matlab = Plots.plot(matrix_data[2], matrix_data[3], size=(600, 600))
-t_inter = matrix_data[1]
-N = length(t_inter)
-x_inter = [ [ matrix_data[i][j] for i ∈ 2:7 ] for j ∈ 1:N ]
-u_inter = control_ideal.(x_inter)
+plot_sol = Plots.plot(sol, size=(900, 1200))
+savefig(plot_sol, "figures/plot_sol_with_initial_guess.pdf");
 
-itp1 = LinearInterpolation(t_inter, [ x_inter[i][1] for i ∈ 1:N ])
-itp2 = LinearInterpolation(t_inter, [ x_inter[i][2] for i ∈ 1:N ])
-itp3 = LinearInterpolation(t_inter, [ x_inter[i][3] for i ∈ 1:N ])
-itp4 = LinearInterpolation(t_inter, [ x_inter[i][4] for i ∈ 1:N ])
-itp5 = LinearInterpolation(t_inter, [ x_inter[i][5] for i ∈ 1:N ])
-itp6 = LinearInterpolation(t_inter, [ x_inter[i][6] for i ∈ 1:N ])
-itp_u = LinearInterpolation(t_inter, u_inter)
+x_sol = sol.state.(sol.times)
+Nsize = length(x_sol)
+plot_traj2D = Plots.plot([ x_sol[i][1] for i ∈ 1:Nsize ], [ x_sol[i][2] for i ∈ 1:Nsize ], size=(600, 600), label="direct with initial guess")
+savefig(plot_traj2D, "figures/plot_traj_with_initial_guess.pdf");
+plot_traj_matlab = Plots.plot!(matrix_data[2], matrix_data[3], size=(600, 600), label="local-optimal")
+
+β_sol = sol.control.(sol.times)
+plot_temperature = Plots.plot(sol.times, temperature.(x_sol, β_sol), size=(600, 600), label="sail temperature")
+plot!([0, sol.times[end]], [Tlim, Tlim], label="temperature limit")
+
+xend = x_sol[end]
+-mu/(sqrt(xend[1]^2 + xend[2]^2 +xend[3]^2) + 1/2 * (xend[4]^2 + xend[5]^2 + xend[6]^2))
+##################################################
+##################################################
+sol = solve(ocp, init=sol, grid_size = 200)
+
+plot_sol = Plots.plot(sol, size=(900, 1200))
+savefig(plot_sol, "figures/plot_sol_with_initial_guess.pdf");
+
+x_sol = sol.state.(sol.times)
+Nsize = length(x_sol)
+plot_traj2D = Plots.plot([ x_sol[i][1] for i ∈ 1:Nsize ], [ x_sol[i][2] for i ∈ 1:Nsize ], size=(600, 600), label="direct with initial guess")
+savefig(plot_traj2D, "figures/plot_traj_with_initial_guess.pdf");
+plot_traj_matlab = Plots.plot!(matrix_data[2], matrix_data[3], size=(600, 600), label="local-optimal")
 
 ## Figures
 # Create individual plots
@@ -213,26 +274,3 @@ itp_u = LinearInterpolation(t_inter, u_inter)
 # xlabel!("Time [0]")
 # ylabel!("u [-]")
 # savefig(plotall, "figures/control.pdf");
-
-x(t) = [itp1(t), itp2(t), itp3(t), itp4(t), itp5(t), itp6(t)]
-β(t)  = itp_u(t)
-# Initial guess
-initial_guess = (state=x, control=β)
-
-# Direct
-sol = solve(ocp, init=initial_guess)#, grid_size = 200)
-
-plot_sol = Plots.plot(sol, size=(900, 1200))
-savefig(plot_sol, "figures/plot_sol_with_initial_guess.pdf");
-
-x_sol = sol.state.(sol.times)
-Nsize = length(x_sol)
-plot_traj2D = Plots.plot([ x_sol[i][1] for i ∈ 1:Nsize ], [ x_sol[i][2] for i ∈ 1:Nsize ], size=(600, 600), label="direct with initial guess")
-savefig(plot_traj2D, "figures/plot_traj_with_initial_guess.pdf");
-plot_traj_matlab = Plots.plot!(matrix_data[2], matrix_data[3], size=(600, 600), label="local-optimal")
-
-β_sol = sol.control.(sol.times)
-plot_temperature = Plots.plot(sol.times, temperature.(x_sol, β_sol), size=(600, 600), label="sail temperature")
-plot!([0, sol.times[end]], [Tlim, Tlim], label="temperature limit")
-
-sol = solve(ocp, init=sol, grid_size = 300)
