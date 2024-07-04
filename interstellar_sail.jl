@@ -42,7 +42,7 @@ Area = 20 * 6 / LU^2             # Vane area * quantity of vanes
 mass = Area / Am                 # Mass of the satellite
 temp0 = 293.15                    # Initial temperature of the satellite
 Csrp = Cs / light_speed
-epsilon = 1e-2 * Am * Csrp
+epsilon = Am * Csrp
 
 # Initial orbit data
 rpsail = 0.15                     # Periapsis distance elliptic orbit
@@ -61,6 +61,9 @@ temp_constr = Tds^4 - Tlim^4 #Tlim^4 - Tds^4
 
 opt_constr = (1 - rho)/(eps_f + eps_b)
 heat_constr = Cs/sigma
+
+# Sun
+rSun = 0.00465047 #AU
 
 # Integration 
 t0 = 0
@@ -101,14 +104,14 @@ itp6 = LinearInterpolation(t_inter, [ x_inter[i][6] for i ∈ 1:N ])
 itp_u = LinearInterpolation(t_inter, u_inter)
 
 # Integration from a random point x_init 
-N_init = 1
+N_init = 350
 time_init = t_inter[N_init]
 x0 = x_inter[N_init]
 
-N_final = 200
+N_final = 499
 
 t0 = time_init
-tf = t_inter[N_final]
+tf = t_inter[N_final] 
 
 itp1 = LinearInterpolation(t_inter[N_init:N_final], [ x_inter[i][1] for i ∈ N_init:N_final ])
 itp2 = LinearInterpolation(t_inter[N_init:N_final], [ x_inter[i][2] for i ∈ N_init:N_final ])
@@ -154,21 +157,21 @@ end
     #x = (r₁, r₂, r₃, v₁, v₂, v₃) ∈ R⁶, state
     x ∈ R⁶, state
     β ∈ R, control
-    # -60 ≤ x₁(t) ≤ 60
-    # -60 ≤ x₂(t) ≤ 60
+    #  -30 ≤ x₁(t) ≤ 30
+    #  -30 ≤ x₂(t) ≤ 30
     -1 ≤ x₃(t) ≤ 1
-    -60 ≤ x₄(t) ≤ 60
-    -60 ≤ x₅(t) ≤ 60
+    -30 ≤ x₄(t) ≤ 30
+    -30 ≤ x₅(t) ≤ 30
     -1 ≤ x₆(t) ≤ 1
-    # (x₁(t)^2 + x₂(t)^2 + x₃(t)^2) ≥ 0.015^2,   (7)
-    0.02^2 ≤ x₁(t)^2 ≤ 60^2
-    0.02^2 ≤ x₂(t)^2 ≤ 60^2
+    (x₁(t)^2 + x₂(t)^2) ≥ 0.015^2,   (7)
+    # 0.015^2 ≤ x₁(t)^2 ≤ 30^2
+    # 0.015^2 ≤ x₂(t)^2 ≤ 30^2
     -π/2 * 0.8 ≤ β(t) ≤ π/2 * 0.8
     x(t0) == x0
     ẋ(t) == F0(x(t)) + F1(x(t), β(t)) 
     #cos(β(t)) / ( r₁(t)^2 + r₂(t)^2 + r₃(t)^2 ) * opt_constr * heat_constr + temp_constr ≤ 0
     cos(β(t)) / ( x₁(t)^2 + x₂(t)^2 + x₃(t)^2 ) * opt_constr * heat_constr + temp_constr ≤ 0
-    #-mu / sqrt( x₁(tf)^2 + x₂(tf)^2 + x₃(tf)^2 ) + 1/2 * ( x₄(tf)^2 + x₅(tf)^2 + x₆(tf)^2 ) ≥ 1e2
+    #-mu / sqrt( x₁(tf)^2 + x₂(tf)^2 + x₃(tf)^2 ) + 1/2 * ( x₄(tf)^2 + x₅(tf)^2 + x₆(tf)^2 ) ≥ 1e5
     -mu / sqrt( x₁(tf)^2 + x₂(tf)^2 + x₃(tf)^2 ) + 1/2 * ( x₄(tf)^2 + x₅(tf)^2 + x₆(tf)^2 ) → max
     #x₄(tf)^2 + x₅(tf)^2 + x₆(tf)^2  → max
     #tf → min
@@ -178,21 +181,51 @@ end
 #                           WITHOUT INITIAL GUESS
 ###########################################################################################################################################
 
-sol = solve(ocp, grid_size = 100)
+# sol = solve(ocp, max_iter = 5000)#, grid_size = 100)
+# sol = solve(ocp, init=sol, max_iter = 5000, grid_size = 100)#, grid_size = 100)
+
+x(t) = [itp1(t), itp2(t), itp3(t), itp4(t), itp5(t), itp6(t)]
+β(t)  = itp_u(t)
+
+initial_guess = (state=x, control=β)
+initial_guess = sol_converged
+# sol = solve(ocp, init=initial_guess)#, grid_size = 200)
+sol = solve(ocp, init=initial_guess, max_iter = 5000, grid_size = 500)
+
 plot_sol = Plots.plot(sol, size=(900, 1200))
 savefig(plot_sol, "figures/plot_sol_without_initial_guess.pdf");
 
 x_sol = sol.state.(sol.times)
 Nsol = length(x_sol)
+Nsol = 453
 plot_traj2D = Plots.plot([ x_sol[i][1] for i ∈ 1:Nsol ], [ x_sol[i][2] for i ∈ 1:Nsol ], size=(600, 600), label="direct without initial guess")
+plot_traj_matlab = Plots.plot!(matrix_data[2], matrix_data[3], size=(600, 600), label="local-optimal")
+scatter!([x_sol[1][1]], [x_sol[1][2]], label="beginning of the optimised arc" )
+plot!(rSun * cos.(range(0, 2*π, 50)), rSun * sin.(range(0, 2*π, 50)), label="Sun", color="yellow" )
+scatter!([0], [0], label="Sun", color="yellow" )
 savefig(plot_traj2D, "figures/plot_traj_without_initial_guess.pdf");
 
-plot_traj_matlab = Plots.plot!(matrix_data[2], matrix_data[3], size=(600, 600), label="local-optimal")
+sol_converged = sol
+sol = solve(ocp, init= sol_converged , max_iter = 5000, grid_size = 600)
+# sol = solve(ocp, init= sol, max_iter = 5000, grid_size = 600)
+
+
 
 β_sol = sol.control.(sol.times)
 plot_temperature = Plots.plot(sol.times, temperature.(x_sol, β_sol), size=(600, 600), label="sail temperature")
 plot!([0, sol.times[end]], [Tlim, Tlim], label="temperature limit")
 
+energy_sol = -mu./sqrt.([x_sol[i][1] for i ∈ 1:Nsol].^2 + [x_sol[i][2] for i ∈ 1:Nsol].^2 + [x_sol[i][3] for i ∈ 1:Nsol].^2) + 1/2 * ([x_sol[i][4] for i ∈ 1:Nsol].^2 + [x_sol[i][5] for i ∈ 1:Nsol].^2 + [x_sol[i][6] for i ∈ 1:Nsol].^2)
+energy_local_optimal = -mu./sqrt.(matrix_data[2].^2 + matrix_data[3].^2 + matrix_data[4].^2) + 1/2 * (matrix_data[5].^2 + matrix_data[6].^2 + matrix_data[7].^2)
+
+plot_energy = Plots.plot(sol.times, energy_sol, size=(600, 600), label="orbital energy")
+plot!(matrix_data[1], energy_local_optimal, label="orbital energy, local-optimal")
+savefig(plot_traj2D, "figures/plot_energy.pdf");
+
+xend = x_sol[end]
+-mu/(sqrt(xend[1]^2 + xend[2]^2 +xend[3]^2)) + 1/2 * (xend[4]^2 + xend[5]^2 + xend[6]^2)
+
+sol_converged = sol
 
 ###########################################################################################################################################
 #                           WITH INITIAL GUESS
@@ -221,11 +254,14 @@ plot_traj_matlab = Plots.plot!(matrix_data[2], matrix_data[3], size=(600, 600), 
 plot_temperature = Plots.plot(sol.times, temperature.(x_sol, β_sol), size=(600, 600), label="sail temperature")
 plot!([0, sol.times[end]], [Tlim, Tlim], label="temperature limit")
 
-xend = x_sol[end]
--mu/(sqrt(xend[1]^2 + xend[2]^2 +xend[3]^2) + 1/2 * (xend[4]^2 + xend[5]^2 + xend[6]^2))
+energy_sol = -mu./sqrt.([x_sol[i][1] for i ∈ 1:Nsize].^2 + [x_sol[i][2] for i ∈ 1:Nsize].^2 + [x_sol[i][3] for i ∈ 1:Nsize].^2) + 1/2 * ([x_sol[i][4] for i ∈ 1:Nsize].^2 + [x_sol[i][5] for i ∈ 1:Nsize].^2 + [x_sol[i][6] for i ∈ 1:Nsize].^2)
+eplot_energy = Plots.plot(sol.times, energy_sol, label="orbital energy")
+xend = x_sol[end-1]
+-mu/(sqrt(xend[1]^2 + xend[2]^2 +xend[3]^2)) + 1/2 * (xend[4]^2 + xend[5]^2 + xend[6]^2)
 ##################################################
 ##################################################
-sol = solve(ocp, init=sol, grid_size = 200)
+sol = solve(ocp, init=sol, grid_size = 100)
+
 
 plot_sol = Plots.plot(sol, size=(900, 1200))
 savefig(plot_sol, "figures/plot_sol_with_initial_guess.pdf");
