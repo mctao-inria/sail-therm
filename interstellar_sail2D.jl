@@ -14,7 +14,7 @@ using Plots
 using Interpolations
 
 include("kepl2cart.jl")
-include("control_ideal.jl")
+include("control_ideal2D.jl")
 
 # Definition of the optical parameters 
 rho = 0.88 # Specular reflection coefficient
@@ -49,9 +49,11 @@ rpsail = 0.15                     # Periapsis distance elliptic orbit
 a0 = (AU/LU + rpsail  * AU / LU ) /2
 e0 = 1 - rpsail/a0
 r0, v0 = kepl2cart(a0, e0, 1e-6, 0, 0, 0, mu)
-x0 = [r0; v0]                 # Initial state
+x0 = [r0[1:2]; v0[1:2]]                 # Initial state
 rE, vE = kepl2cart(1, 0, 1e-6, 0, 0, 0, mu)
-xEarth = [rE; vE]
+xEarth = [rE[1:2]; vE[1:2]]
+
+r0, v0 = kepl2cart(1, 0, 1e-6, 0, 0, 0, mu)
   
 # Heat parameters for Kapton material
 spec_heat = 989 / LU^2 * TU^2                     # J/kg/K
@@ -104,9 +106,9 @@ itp6 = LinearInterpolation(t_inter, [ x_inter[i][6] for i ∈ 1:N ])
 itp_u = LinearInterpolation(t_inter, u_inter)
 
 # Integration from a random point x_init 
-N_init = 240
+N_init = 270
 time_init = t_inter[N_init]
-x0 = x_inter[N_init]
+x0 = [x_inter[N_init][1:2]; x_inter[N_init][4:5]]
 
 N_final = 499
 
@@ -115,66 +117,55 @@ tf = t_inter[N_final]
 
 itp1 = LinearInterpolation(t_inter[N_init:N_final], [ x_inter[i][1] for i ∈ N_init:N_final ])
 itp2 = LinearInterpolation(t_inter[N_init:N_final], [ x_inter[i][2] for i ∈ N_init:N_final ])
-itp3 = LinearInterpolation(t_inter[N_init:N_final], [ x_inter[i][3] for i ∈ N_init:N_final ])
+# itp3 = LinearInterpolation(t_inter[N_init:N_final], [ x_inter[i][3] for i ∈ N_init:N_final ])
 itp4 = LinearInterpolation(t_inter[N_init:N_final], [ x_inter[i][4] for i ∈ N_init:N_final ])
 itp5 = LinearInterpolation(t_inter[N_init:N_final], [ x_inter[i][5] for i ∈ N_init:N_final ])
-itp6 = LinearInterpolation(t_inter[N_init:N_final], [ x_inter[i][6] for i ∈ N_init:N_final ])
+# itp6 = LinearInterpolation(t_inter[N_init:N_final], [ x_inter[i][6] for i ∈ N_init:N_final ])
 itp_u = LinearInterpolation(t_inter[N_init:N_final], u_inter[N_init:N_final])
 
 
 function F0(x)
     # Kepler equation
-    normr = sqrt( x[1]^2 + x[2]^2 + x[3]^2 )
-    r = x[1:3]
-    v = x[4:6]
-    dv = -mu / normr^3 * r
+    normr = sqrt( x[1]^2 + x[2]^2)
+    r = x[1:2]
+    v = x[4:5]
+    dv = -mu / normr^2 * r
     dx = [v; dv]
     return dx
 end
 
 function F1(x, β)
     #f = atan(x[2], x[1])
-    nx = sqrt( x[1]^2 + x[2]^2 + x[3]^2 )
+    nx = sqrt( x[1]^2 + x[2]^2 )
     cf = x[1] / nx
     sf = x[2] / nx
-    rot_matrix = [cf -sf  0
-                  sf  cf  0
-                  0   0   1]
+    rot_matrix = [cf -sf 
+                  sf  cf]
     dvdt = rot_matrix * srpsail2D(x, β)
-    dxdt = [0; 0; 0; dvdt]
+    dxdt = [0; 0; dvdt]
     return dxdt
 end
 
 
 function temperature(x, β)
-    temp = (Tds^4 + cos(β) / ( x[1]^2 + x[2]^2 + x[3]^2 ) * opt_constr * heat_constr)^(1/4)
+    temp = (Tds^4 + cos(β) / ( x[1]^2 + x[2]^2 ) * opt_constr * heat_constr)^(1/4)
     return temp
 end
 
 @def ocp begin
-    #tf ∈ R, variable
     t ∈ [ t0, tf ], time
     #x = (r₁, r₂, r₃, v₁, v₂, v₃) ∈ R⁶, state
-    x ∈ R⁶, state
+    x ∈ R₄, state
     β ∈ R, control
      -30 ≤ x₁(t) ≤ 30
      -30 ≤ x₂(t) ≤ 30
-    -1 ≤ x₃(t) ≤ 1
+    -30 ≤ x₃(t) ≤ 30
     -30 ≤ x₄(t) ≤ 30
-    -30 ≤ x₅(t) ≤ 30
-    -1 ≤ x₆(t) ≤ 1
-    # (x₁(t)^2 + x₂(t)^2) ≥ 0.015^2,   (7)
-    # 0.015^2 ≤ x₁(t)^2 ≤ 30^2
-    # 0.015^2 ≤ x₂(t)^2 ≤ 30^2
     -π/2 * 0.8 ≤ β(t) ≤ π/2 * 0.8
     x(t0) == x0
     ẋ(t) == F0(x(t)) + F1(x(t), β(t)) 
-    #cos(β(t)) / ( r₁(t)^2 + r₂(t)^2 + r₃(t)^2 ) * opt_constr * heat_constr + temp_constr ≤ 0
-    cos(β(t)) / ( x₁(t)^2 + x₂(t)^2 + x₃(t)^2) * opt_constr * heat_constr + temp_constr ≤ 0
-    #-mu / sqrt( x₁(tf)^2 + x₂(tf)^2 + x₃(tf)^2 ) + 1/2 * ( x₄(tf)^2 + x₅(tf)^2 + x₆(tf)^2 ) ≥ 1e5
-    -mu / sqrt( x₁(tf)^2 + x₂(tf)^2 + x₃(tf)^2 ) + 1/2 * ( x₄(tf)^2 + x₅(tf)^2 + x₆(tf)^2 ) → max
-    #x₄(tf)^2 + x₅(tf)^2 + x₆(tf)^2  → max
-    #tf → min
+    cos(β(t)) / ( x₁(t)^2 + x₂(t)^2 + 1e-10) * opt_constr * heat_constr + temp_constr ≤ 0
+    -mu / sqrt( x₁(tf)^2 + x₂(tf)^2) + 1/2 * ( x₃(tf)^2 + x₄(tf)^2 ) → max
 end
 
 function ocp_t0(N_0)
@@ -184,17 +175,15 @@ function ocp_t0(N_0)
         t ∈ [ t0, tf ], time
         x ∈ R⁶, state
         β ∈ R, control
-         -30 ≤ x₁(t) ≤ 30
-         -30 ≤ x₂(t) ≤ 30
-        -1 ≤ x₃(t) ≤ 1
+        -30 ≤ x₁(t) ≤ 30
+        -30 ≤ x₂(t) ≤ 30
+        -30 ≤ x₃(t) ≤ 30
         -30 ≤ x₄(t) ≤ 30
-        -30 ≤ x₅(t) ≤ 30
-        -1 ≤ x₆(t) ≤ 1
         -π/2 * 0.8 ≤ β(t) ≤ π/2 * 0.8
         x(t0) == x0
         ẋ(t) == F0(x(t)) + F1(x(t), β(t)) 
-        cos(β(t)) / ( x₁(t)^2 + x₂(t)^2 + x₃(t)^2) * opt_constr * heat_constr + temp_constr ≤ 0
-        -mu / sqrt( x₁(tf)^2 + x₂(tf)^2 + x₃(tf)^2 ) + 1/2 * ( x₄(tf)^2 + x₅(tf)^2 + x₆(tf)^2 ) → max
+        cos(β(t)) / ( x₁(t)^2 + x₂(t)^2 + 1e-10) * opt_constr * heat_constr + temp_constr ≤ 0
+        -mu / sqrt( x₁(tf)^2 + x₂(tf)^2 ) + 1/2 * ( x₃(tf)^2 + x₄(tf)^2 ) → max
     end
     return ocp
 end
@@ -206,7 +195,7 @@ end
 # sol = solve(ocp, max_iter = 5000)#, grid_size = 100)
 # sol = solve(ocp, init=sol, max_iter = 5000, grid_size = 100)#, grid_size = 100)
 
-x(t) = [itp1(t), itp2(t), itp3(t), itp4(t), itp5(t), itp6(t)]
+t0x(t) = [itp1(t), itp2(t), itp4(t), itp5(t)]
 β(t)  = itp_u(t)
 
 initial_guess = (state=x, control=β)
@@ -234,16 +223,16 @@ sol_converged = sol
 # x0 = x_inter[N_init]
 # t0 = t_inter[N_init]
 
-# 260
+# 270
 init_loop = sol
 t0_list = []
 obj_list = []
 sol_list = []
-for Nt0_local=249:-2:240
+for Nt0_local=270:-5:260
     ocp_loop = ocp_t0(Nt0_local)
     global sol_loop = solve(ocp_loop, init=init_loop, print_level=0, max_iter = 5000, grid_size = 500)
     global init_loop = sol_loop
-    print("Nt0 %.2f time %.6f iterations %d\n", Nt0_local, sol_loop.objective, sol_loop.iterations)
+    print("Nt0 %.2f time %.6f iterations %d\n", Nt0_local, sol.objective, sol.iterations)
     push!(t0_list, t0)
     push!(obj_list, sol_loop.objective)
     push!(sol_list, sol_loop)
@@ -254,7 +243,7 @@ sol = sol_loop
 
 
 # sol = solve(ocp, init= sol_converged , max_iter = 5000, grid_size = 500)
-sol = solve(ocp, init= sol, max_iter = 5000, grid_size = 600)
+# sol = solve(ocp, init= sol, max_iter = 5000, grid_size = 600)
 
 
 
