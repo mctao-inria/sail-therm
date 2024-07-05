@@ -12,6 +12,7 @@ using OptimalControl
 #using MINPACK
 using Plots
 using Interpolations
+using JLD2
 
 include("kepl2cart.jl")
 include("control_ideal2D.jl")
@@ -53,8 +54,9 @@ x0 = [r0[1:2]; v0[1:2]]                 # Initial state
 rE, vE = kepl2cart(1, 0, 1e-6, 0, 0, 0, mu)
 xEarth = [rE[1:2]; vE[1:2]]
 
-r0, v0 = kepl2cart(1, 0, 1e-6, 0, 0, 0, mu)
-  
+# r0, v0 = kepl2cart(1, 0, 1e-6, 0, 0, 0, mu)
+# x0 = [r0[1:2]; v0[1:2]]    
+
 # Heat parameters for Kapton material
 spec_heat = 989 / LU^2 * TU^2                     # J/kg/K
 heat_cap = spec_heat * mass / LU^2 * TU^2        # J/K
@@ -92,25 +94,30 @@ end
 
 # Interpolation of the initial guess
 # plot_traj_matlab = Plots.plot(matrix_data[2], matrix_data[3], size=(600, 600))
+# t_inter = matrix_data[1]
+# N = length(t_inter)
+# x_inter = [ [ matrix_data[i][j] for i ∈ 2:7 ] for j ∈ 1:N ]
+# u_inter = control_ideal.(x_inter)
+
+# itp1 = LinearInterpolation(t_inter, [ x_inter[i][1] for i ∈ 1:N ])
+# itp2 = LinearInterpolation(t_inter, [ x_inter[i][2] for i ∈ 1:N ])
+# itp3 = LinearInterpolation(t_inter, [ x_inter[i][3] for i ∈ 1:N ])
+# itp4 = LinearInterpolation(t_inter, [ x_inter[i][4] for i ∈ 1:N ])
+# itp5 = LinearInterpolation(t_inter, [ x_inter[i][5] for i ∈ 1:N ])
+# itp6 = LinearInterpolation(t_inter, [ x_inter[i][6] for i ∈ 1:N ])
+# itp_u = LinearInterpolation(t_inter, u_inter)
+
+# Integration from a random point x_init 
 t_inter = matrix_data[1]
 N = length(t_inter)
 x_inter = [ [ matrix_data[i][j] for i ∈ 2:7 ] for j ∈ 1:N ]
 u_inter = control_ideal.(x_inter)
 
-itp1 = LinearInterpolation(t_inter, [ x_inter[i][1] for i ∈ 1:N ])
-itp2 = LinearInterpolation(t_inter, [ x_inter[i][2] for i ∈ 1:N ])
-itp3 = LinearInterpolation(t_inter, [ x_inter[i][3] for i ∈ 1:N ])
-itp4 = LinearInterpolation(t_inter, [ x_inter[i][4] for i ∈ 1:N ])
-itp5 = LinearInterpolation(t_inter, [ x_inter[i][5] for i ∈ 1:N ])
-itp6 = LinearInterpolation(t_inter, [ x_inter[i][6] for i ∈ 1:N ])
-itp_u = LinearInterpolation(t_inter, u_inter)
-
-# Integration from a random point x_init 
-N_init = 270
+N_init = 300
 time_init = t_inter[N_init]
 x0 = [x_inter[N_init][1:2]; x_inter[N_init][4:5]]
 
-N_final = 499
+N_final = N
 
 t0 = time_init
 tf = t_inter[N_final] 
@@ -128,8 +135,8 @@ function F0(x)
     # Kepler equation
     normr = sqrt( x[1]^2 + x[2]^2)
     r = x[1:2]
-    v = x[4:5]
-    dv = -mu / normr^2 * r
+    v = x[3:4]
+    dv = -mu / normr^3 * r
     dx = [v; dv]
     return dx
 end
@@ -139,8 +146,7 @@ function F1(x, β)
     nx = sqrt( x[1]^2 + x[2]^2 )
     cf = x[1] / nx
     sf = x[2] / nx
-    rot_matrix = [cf -sf 
-                  sf  cf]
+    rot_matrix = [cf -sf; sf  cf]
     dvdt = rot_matrix * srpsail2D(x, β)
     dxdt = [0; 0; dvdt]
     return dxdt
@@ -154,39 +160,38 @@ end
 
 @def ocp begin
     t ∈ [ t0, tf ], time
-    #x = (r₁, r₂, r₃, v₁, v₂, v₃) ∈ R⁶, state
-    x ∈ R₄, state
+    x ∈ R⁴, state
     β ∈ R, control
-     -30 ≤ x₁(t) ≤ 30
-     -30 ≤ x₂(t) ≤ 30
+    -30 ≤ x₁(t) ≤ 30
+    -30 ≤ x₂(t) ≤ 30
     -30 ≤ x₃(t) ≤ 30
     -30 ≤ x₄(t) ≤ 30
     -π/2 * 0.8 ≤ β(t) ≤ π/2 * 0.8
     x(t0) == x0
     ẋ(t) == F0(x(t)) + F1(x(t), β(t)) 
-    cos(β(t)) / ( x₁(t)^2 + x₂(t)^2 + 1e-10) * opt_constr * heat_constr + temp_constr ≤ 0
-    -mu / sqrt( x₁(tf)^2 + x₂(tf)^2) + 1/2 * ( x₃(tf)^2 + x₄(tf)^2 ) → max
+    cos(β(t)) / ( x₁(t)^2 + x₂(t)^2 ) * opt_constr * heat_constr + temp_constr ≤ 0
+    -mu / sqrt( x₁(tf)^2 + x₂(tf)^2 ) + 1/2 * ( x₃(tf)^2 + x₄(tf)^2 ) → max
 end
 
-function ocp_t0(N_0)
-    global t0 = t_inter[N_0]
-    global x0 = x_inter[N_0]
-    @def ocp begin
-        t ∈ [ t0, tf ], time
-        x ∈ R⁶, state
-        β ∈ R, control
-        -30 ≤ x₁(t) ≤ 30
-        -30 ≤ x₂(t) ≤ 30
-        -30 ≤ x₃(t) ≤ 30
-        -30 ≤ x₄(t) ≤ 30
-        -π/2 * 0.8 ≤ β(t) ≤ π/2 * 0.8
-        x(t0) == x0
-        ẋ(t) == F0(x(t)) + F1(x(t), β(t)) 
-        cos(β(t)) / ( x₁(t)^2 + x₂(t)^2 + 1e-10) * opt_constr * heat_constr + temp_constr ≤ 0
-        -mu / sqrt( x₁(tf)^2 + x₂(tf)^2 ) + 1/2 * ( x₃(tf)^2 + x₄(tf)^2 ) → max
-    end
-    return ocp
-end
+# function ocp_t0(N_0)
+#     global t0 = t_inter[N_0]
+#     global x0 = x_inter[N_0]
+#     @def ocp begin
+#         t ∈ [ t0, tf ], time
+#         x ∈ R⁴, state
+#         β ∈ R, control
+#         -30 ≤ x₁(t) ≤ 30
+#         -30 ≤ x₂(t) ≤ 30
+#         -30 ≤ x₃(t) ≤ 30
+#         -30 ≤ x₄(t) ≤ 30
+#         -π/2 * 0.8 ≤ β(t) ≤ π/2 * 0.8
+#         x(t0) == x0
+#         ẋ(t) == F0(x(t)) + F1(x(t), β(t)) 
+#         cos(β(t)) / ( x₁(t)^2 + x₂(t)^2 + 1e-10) * opt_constr * heat_constr + temp_constr ≤ 0
+#         -mu / sqrt( x₁(tf)^2 + x₂(tf)^2 ) + 1/2 * ( x₃(tf)^2 + x₄(tf)^2 ) → max
+#     end
+#     return ocp
+# end
 
 ###########################################################################################################################################
 #                           WITHOUT INITIAL GUESS
@@ -195,13 +200,14 @@ end
 # sol = solve(ocp, max_iter = 5000)#, grid_size = 100)
 # sol = solve(ocp, init=sol, max_iter = 5000, grid_size = 100)#, grid_size = 100)
 
-t0x(t) = [itp1(t), itp2(t), itp4(t), itp5(t)]
+x(t) = [itp1(t), itp2(t), itp4(t), itp5(t)]
 β(t)  = itp_u(t)
 
 initial_guess = (state=x, control=β)
 initial_guess = sol_converged
 # sol = solve(ocp, init=initial_guess)#, grid_size = 200)
 sol = solve(ocp, init=initial_guess, max_iter = 5000, grid_size = 500)
+# sol = solve(ocp, max_iter = 5000, grid_size = 500)
 
 plot_sol = Plots.plot(sol, size=(900, 1200))
 savefig(plot_sol, "figures/plot_sol_without_initial_guess.pdf");
@@ -251,7 +257,7 @@ sol = sol_loop
 plot_temperature = Plots.plot(sol.times, temperature.(x_sol, β_sol), size=(600, 600), label="sail temperature")
 plot!([0, sol.times[end]], [Tlim, Tlim], label="temperature limit")
 
-energy_sol = -mu./sqrt.([x_sol[i][1] for i ∈ 1:Nsol].^2 + [x_sol[i][2] for i ∈ 1:Nsol].^2 + [x_sol[i][3] for i ∈ 1:Nsol].^2) + 1/2 * ([x_sol[i][4] for i ∈ 1:Nsol].^2 + [x_sol[i][5] for i ∈ 1:Nsol].^2 + [x_sol[i][6] for i ∈ 1:Nsol].^2)
+energy_sol = -mu./sqrt.([x_sol[i][1] for i ∈ 1:Nsol].^2 + [x_sol[i][2] for i ∈ 1:Nsol].^2 ) + 1/2 * ([x_sol[i][3] for i ∈ 1:Nsol].^2 + [x_sol[i][4] for i ∈ 1:Nsol].^2)
 energy_local_optimal = -mu./sqrt.(matrix_data[2].^2 + matrix_data[3].^2 + matrix_data[4].^2) + 1/2 * (matrix_data[5].^2 + matrix_data[6].^2 + matrix_data[7].^2)
 
 plot_energy = Plots.plot(sol.times, energy_sol, size=(600, 600), label="orbital energy")
@@ -259,90 +265,6 @@ plot!(matrix_data[1], energy_local_optimal, label="orbital energy, local-optimal
 savefig(plot_traj2D, "figures/plot_energy.pdf");
 
 xend = x_sol[end]
--mu/(sqrt(xend[1]^2 + xend[2]^2 +xend[3]^2)) + 1/2 * (xend[4]^2 + xend[5]^2 + xend[6]^2)
+-mu/(sqrt(xend[1]^2 + xend[2]^2)) + 1/2 * (xend[3]^2 + xend[4]^2)
 
 sol_converged = sol
-
-###########################################################################################################################################
-#                           WITH INITIAL GUESS
-###########################################################################################################################################
-
-
-
-x(t) = [itp1(t), itp2(t), itp3(t), itp4(t), itp5(t), itp6(t)]
-β(t)  = itp_u(t)
-# Initial guess
-initial_guess = (state=x, control=β)
-
-# Direct
-sol = solve(ocp, init=initial_guess)#, grid_size = 200)
-
-plot_sol = Plots.plot(sol, size=(900, 1200))
-savefig(plot_sol, "figures/plot_sol_with_initial_guess.pdf");
-
-x_sol = sol.state.(sol.times)
-Nsize = length(x_sol)
-plot_traj2D = Plots.plot([ x_sol[i][1] for i ∈ 1:Nsize ], [ x_sol[i][2] for i ∈ 1:Nsize ], size=(600, 600), label="direct with initial guess")
-savefig(plot_traj2D, "figures/plot_traj_with_initial_guess.pdf");
-plot_traj_matlab = Plots.plot!(matrix_data[2], matrix_data[3], size=(600, 600), label="local-optimal")
-
-β_sol = sol.control.(sol.times)
-plot_temperature = Plots.plot(sol.times, temperature.(x_sol, β_sol), size=(600, 600), label="sail temperature")
-plot!([0, sol.times[end]], [Tlim, Tlim], label="temperature limit")
-
-energy_sol = -mu./sqrt.([x_sol[i][1] for i ∈ 1:Nsize].^2 + [x_sol[i][2] for i ∈ 1:Nsize].^2 + [x_sol[i][3] for i ∈ 1:Nsize].^2) + 1/2 * ([x_sol[i][4] for i ∈ 1:Nsize].^2 + [x_sol[i][5] for i ∈ 1:Nsize].^2 + [x_sol[i][6] for i ∈ 1:Nsize].^2)
-eplot_energy = Plots.plot(sol.times, energy_sol, label="orbital energy")
-xend = x_sol[end-1]
--mu/(sqrt(xend[1]^2 + xend[2]^2 +xend[3]^2)) + 1/2 * (xend[4]^2 + xend[5]^2 + xend[6]^2)
-##################################################
-##################################################
-sol = solve(ocp, init=sol, grid_size = 100)
-
-
-plot_sol = Plots.plot(sol, size=(900, 1200))
-savefig(plot_sol, "figures/plot_sol_with_initial_guess.pdf");
-
-x_sol = sol.state.(sol.times)
-Nsize = length(x_sol)
-plot_traj2D = Plots.plot([ x_sol[i][1] for i ∈ 1:Nsize ], [ x_sol[i][2] for i ∈ 1:Nsize ], size=(600, 600), label="direct with initial guess")
-savefig(plot_traj2D, "figures/plot_traj_with_initial_guess.pdf");
-plot_traj_matlab = Plots.plot!(matrix_data[2], matrix_data[3], size=(600, 600), label="local-optimal")
-
-## Figures
-# Create individual plots
-# plotx1 = Plots.plot(t_inter, itp1.(t_inter), grid = "off", framestyle = :box, legend = false)
-# xlabel!("Time [0]")
-# ylabel!("r₁ [-]")
-
-# plotx2 = Plots.plot(t_inter, itp2.(t_inter), grid = "off", framestyle = :box, legend = false)
-# xlabel!("Time [0]")
-# ylabel!("r₂ [-]")
-
-# plotx3 = Plots.plot(t_inter, itp3.(t_inter), grid = "off", framestyle = :box, legend = false)
-# xlabel!("Time [0]")
-# ylabel!("r₃ [-]")
-
-# plotx4 = Plots.plot(t_inter, itp4.(t_inter), grid = "off", framestyle = :box, legend = false)
-# xlabel!("Time [0]")
-# ylabel!("v₁ [-]")
-
-# plotx5 = Plots.plot(t_inter, itp5.(t_inter), grid = "off", framestyle = :box, legend = false)
-# xlabel!("Time [0]")
-# ylabel!("v₂ [-]")
-
-# plotx6 = Plots.plot(t_inter, itp6.(t_inter), grid = "off", framestyle = :box, legend = false)
-# xlabel!("Time [0]")
-# ylabel!("v₃ [-]")
-
-# Tile the plots in a 3x2 grid
-# plotall = plot(plotx1, plotx2, plotx3, plotx4, plotx5, plotx6, layout = (3, 2), size = (1600, 1600));
-
-# Display the tiled plot
-# display(plotall);
-# savefig(plotall, "figures/plotall.pdf");
-
-# Control 
-# Plots.plot(t_inter, itp_u.(t_inter), grid = "off", framestyle = :box, legend = false)
-# xlabel!("Time [0]")
-# ylabel!("u [-]")
-# savefig(plotall, "figures/control.pdf");

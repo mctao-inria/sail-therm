@@ -27,7 +27,7 @@ end
 
 function srpsail2D(x, β)
     # SRP of the ideal solar sail in 2D
-    normr    = (x[1]^2 + x[2]^2)^(1/2)
+    normr = sqrt( r[1]^2 + r[2]^2)
 
     fsrp     = [ 2 * epsilon * cos(β)^3; 
                  2 * epsilon * sin(β) * cos(β)^2]
