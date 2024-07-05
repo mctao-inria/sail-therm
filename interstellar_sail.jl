@@ -12,6 +12,7 @@ using OptimalControl
 #using MINPACK
 using Plots
 using Interpolations
+using JLD2
 
 include("kepl2cart.jl")
 include("control_ideal.jl")
@@ -104,7 +105,7 @@ itp6 = LinearInterpolation(t_inter, [ x_inter[i][6] for i ∈ 1:N ])
 itp_u = LinearInterpolation(t_inter, u_inter)
 
 # Integration from a random point x_init 
-N_init = 240
+N_init = 1
 time_init = t_inter[N_init]
 x0 = x_inter[N_init]
 
@@ -170,7 +171,7 @@ end
     x(t0) == x0
     ẋ(t) == F0(x(t)) + F1(x(t), β(t)) 
     #cos(β(t)) / ( r₁(t)^2 + r₂(t)^2 + r₃(t)^2 ) * opt_constr * heat_constr + temp_constr ≤ 0
-    cos(β(t)) / ( x₁(t)^2 + x₂(t)^2 + x₃(t)^2) * opt_constr * heat_constr + temp_constr ≤ 0
+    cos(β(t)) / ( x₁(t)^2 + x₂(t)^2 + x₃(t)^2 + 1e-6) * opt_constr * heat_constr + temp_constr ≤ 0
     #-mu / sqrt( x₁(tf)^2 + x₂(tf)^2 + x₃(tf)^2 ) + 1/2 * ( x₄(tf)^2 + x₅(tf)^2 + x₆(tf)^2 ) ≥ 1e5
     -mu / sqrt( x₁(tf)^2 + x₂(tf)^2 + x₃(tf)^2 ) + 1/2 * ( x₄(tf)^2 + x₅(tf)^2 + x₆(tf)^2 ) → max
     #x₄(tf)^2 + x₅(tf)^2 + x₆(tf)^2  → max
@@ -212,7 +213,7 @@ x(t) = [itp1(t), itp2(t), itp3(t), itp4(t), itp5(t), itp6(t)]
 initial_guess = (state=x, control=β)
 initial_guess = sol_converged
 # sol = solve(ocp, init=initial_guess)#, grid_size = 200)
-sol = solve(ocp, init=initial_guess, max_iter = 5000, grid_size = 500)
+sol = solve(ocp, init=initial_guess, max_iter = 10000, grid_size = 500)
 
 plot_sol = Plots.plot(sol, size=(900, 1200))
 savefig(plot_sol, "figures/plot_sol_without_initial_guess.pdf");
@@ -228,18 +229,18 @@ scatter!([0], [0], label="Sun", color="yellow" )
 savefig(plot_traj2D, "figures/plot_traj_without_initial_guess.pdf");
 
 sol_converged = sol
-# sol = sol_converged
+sol = sol_converged
 
 # N_init = 250
 # x0 = x_inter[N_init]
 # t0 = t_inter[N_init]
 
-# 260
+# 240
 init_loop = sol
 t0_list = []
 obj_list = []
 sol_list = []
-for Nt0_local=249:-2:240
+for Nt0_local=240:-2:240
     ocp_loop = ocp_t0(Nt0_local)
     global sol_loop = solve(ocp_loop, init=init_loop, print_level=0, max_iter = 5000, grid_size = 500)
     global init_loop = sol_loop
@@ -251,7 +252,8 @@ end
 sol = sol_loop
 
 # save(sol)
-
+save_object("sol.jld2", sol_converged)
+sol_loaded = load("sol.jld2")
 
 # sol = solve(ocp, init= sol_converged , max_iter = 5000, grid_size = 500)
 sol = solve(ocp, init= sol, max_iter = 5000, grid_size = 600)
