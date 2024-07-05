@@ -104,7 +104,7 @@ itp6 = LinearInterpolation(t_inter, [ x_inter[i][6] for i ∈ 1:N ])
 itp_u = LinearInterpolation(t_inter, u_inter)
 
 # Integration from a random point x_init 
-N_init = 350
+N_init = 270
 time_init = t_inter[N_init]
 x0 = x_inter[N_init]
 
@@ -157,24 +157,46 @@ end
     #x = (r₁, r₂, r₃, v₁, v₂, v₃) ∈ R⁶, state
     x ∈ R⁶, state
     β ∈ R, control
-    #  -30 ≤ x₁(t) ≤ 30
-    #  -30 ≤ x₂(t) ≤ 30
+     -30 ≤ x₁(t) ≤ 30
+     -30 ≤ x₂(t) ≤ 30
     -1 ≤ x₃(t) ≤ 1
     -30 ≤ x₄(t) ≤ 30
     -30 ≤ x₅(t) ≤ 30
     -1 ≤ x₆(t) ≤ 1
-    (x₁(t)^2 + x₂(t)^2) ≥ 0.015^2,   (7)
+    # (x₁(t)^2 + x₂(t)^2) ≥ 0.015^2,   (7)
     # 0.015^2 ≤ x₁(t)^2 ≤ 30^2
     # 0.015^2 ≤ x₂(t)^2 ≤ 30^2
     -π/2 * 0.8 ≤ β(t) ≤ π/2 * 0.8
     x(t0) == x0
     ẋ(t) == F0(x(t)) + F1(x(t), β(t)) 
     #cos(β(t)) / ( r₁(t)^2 + r₂(t)^2 + r₃(t)^2 ) * opt_constr * heat_constr + temp_constr ≤ 0
-    cos(β(t)) / ( x₁(t)^2 + x₂(t)^2 + x₃(t)^2 ) * opt_constr * heat_constr + temp_constr ≤ 0
+    cos(β(t)) / ( x₁(t)^2 + x₂(t)^2 + x₃(t)^2) * opt_constr * heat_constr + temp_constr ≤ 0
     #-mu / sqrt( x₁(tf)^2 + x₂(tf)^2 + x₃(tf)^2 ) + 1/2 * ( x₄(tf)^2 + x₅(tf)^2 + x₆(tf)^2 ) ≥ 1e5
     -mu / sqrt( x₁(tf)^2 + x₂(tf)^2 + x₃(tf)^2 ) + 1/2 * ( x₄(tf)^2 + x₅(tf)^2 + x₆(tf)^2 ) → max
     #x₄(tf)^2 + x₅(tf)^2 + x₆(tf)^2  → max
     #tf → min
+end
+
+function ocp_t0(N_0)
+    global t0 = t_inter[N_0]
+    global x0 = x_inter[N_0]
+    @def ocp begin
+        t ∈ [ t0, tf ], time
+        x ∈ R⁶, state
+        β ∈ R, control
+         -30 ≤ x₁(t) ≤ 30
+         -30 ≤ x₂(t) ≤ 30
+        -1 ≤ x₃(t) ≤ 1
+        -30 ≤ x₄(t) ≤ 30
+        -30 ≤ x₅(t) ≤ 30
+        -1 ≤ x₆(t) ≤ 1
+        -π/2 * 0.8 ≤ β(t) ≤ π/2 * 0.8
+        x(t0) == x0
+        ẋ(t) == F0(x(t)) + F1(x(t), β(t)) 
+        cos(β(t)) / ( x₁(t)^2 + x₂(t)^2 + x₃(t)^2) * opt_constr * heat_constr + temp_constr ≤ 0
+        -mu / sqrt( x₁(tf)^2 + x₂(tf)^2 + x₃(tf)^2 ) + 1/2 * ( x₄(tf)^2 + x₅(tf)^2 + x₆(tf)^2 ) → max
+    end
+    return ocp
 end
 
 ###########################################################################################################################################
@@ -184,7 +206,7 @@ end
 # sol = solve(ocp, max_iter = 5000)#, grid_size = 100)
 # sol = solve(ocp, init=sol, max_iter = 5000, grid_size = 100)#, grid_size = 100)
 
-x(t) = [itp1(t), itp2(t), itp3(t), itp4(t), itp5(t), itp6(t)]
+t0x(t) = [itp1(t), itp2(t), itp3(t), itp4(t), itp5(t), itp6(t)]
 β(t)  = itp_u(t)
 
 initial_guess = (state=x, control=β)
@@ -197,7 +219,7 @@ savefig(plot_sol, "figures/plot_sol_without_initial_guess.pdf");
 
 x_sol = sol.state.(sol.times)
 Nsol = length(x_sol)
-Nsol = 453
+# Nsol = 453
 plot_traj2D = Plots.plot([ x_sol[i][1] for i ∈ 1:Nsol ], [ x_sol[i][2] for i ∈ 1:Nsol ], size=(600, 600), label="direct without initial guess")
 plot_traj_matlab = Plots.plot!(matrix_data[2], matrix_data[3], size=(600, 600), label="local-optimal")
 scatter!([x_sol[1][1]], [x_sol[1][2]], label="beginning of the optimised arc" )
@@ -206,7 +228,32 @@ scatter!([0], [0], label="Sun", color="yellow" )
 savefig(plot_traj2D, "figures/plot_traj_without_initial_guess.pdf");
 
 sol_converged = sol
-sol = solve(ocp, init= sol_converged , max_iter = 5000, grid_size = 600)
+# sol = sol_converged
+
+# N_init = 250
+# x0 = x_inter[N_init]
+# t0 = t_inter[N_init]
+
+# 270
+init_loop = sol
+t0_list = []
+obj_list = []
+sol_list = []
+for Nt0_local=270:-5:260
+    ocp_loop = ocp_t0(Nt0_local)
+    global sol_loop = solve(ocp_loop, init=init_loop, print_level=0, max_iter = 5000, grid_size = 500)
+    global init_loop = sol_loop
+    print("Nt0 %.2f time %.6f iterations %d\n", Nt0_local, sol.objective, sol.iterations)
+    push!(t0_list, t0)
+    push!(obj_list, sol_loop.objective)
+    push!(sol_list, sol_loop)
+end
+sol = sol_loop
+
+# save(sol)
+
+
+# sol = solve(ocp, init= sol_converged , max_iter = 5000, grid_size = 500)
 # sol = solve(ocp, init= sol, max_iter = 5000, grid_size = 600)
 
 
