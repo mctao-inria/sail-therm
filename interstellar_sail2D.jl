@@ -17,6 +17,11 @@ using JLD2
 include("kepl2cart.jl")
 include("control_ideal2D.jl")
 
+function rnorm(x)
+    eps = 1e-9
+    return sqrt(x[1].^2 + x[2].^2 + eps^2)
+end
+
 # Definition of the optical parameters 
 rho = 0.88 # Specular reflection coefficient
 s = 1 #0.94 # Diffuse reflection coefficient 
@@ -172,7 +177,7 @@ end
     x(t0) == x0
     ẋ(t) == F0(x(t)) + F1(x(t), β(t)) 
     sqrt(x₁(t)^2 + x₂(t)^2) ≥ 0.01
-    #cos(β(t)) / ( x₁(t)^2 + x₂(t)^2 + 1e-3^2) * opt_constr * heat_constr + temp_constr ≤ 0
+    # cos(β(t)) / ( x₁(t)^2 + x₂(t)^2 + 1e-3^2) * opt_constr * heat_constr + temp_constr ≤ 0
     -mu / sqrt( x₁(tf)^2 + x₂(tf)^2 + 1e-3^2) + 1/2 * ( x₃(tf)^2 + x₄(tf)^2 ) → max
 end
 
@@ -258,12 +263,12 @@ init_loop = sol
 t0_list = []
 obj_list = []
 sol_list = []
-for Nt0_local = 215:-1:210 #Nt0_local=350:-10:200
+for Nt0_local = 200:-1:200 #Nt0_local=350:-10:200
     # Nt0_local = 1 
     Ntf_local = 499
     ocp_loop = ocp_t0(Nt0_local, Ntf_local)
-    for Ngrid = 700:50:700
-        global sol_loop = solve(ocp_loop, init=init_loop, max_iter = 3000, grid_size = Ngrid, print_level=0)
+    for Ngrid = 2000:50:2000
+        global sol_loop = solve(ocp_loop, init=init_loop, max_iter = 5000, grid_size = Ngrid, print_level=0)
         if sol_loop.iterations == 5000
             println("Iterations exceeded while doing the continuation on the time")
             break
@@ -278,7 +283,7 @@ for Nt0_local = 215:-1:210 #Nt0_local=350:-10:200
         push!(sol_list, sol_loop)
     end
 end
-sol = sol_list[end-1]
+sol = sol_list[end]
 plot_sol = Plots.plot(sol, size=(900, 1200))
 sol = sol_loop
 
@@ -315,10 +320,11 @@ savefig(plot_energy, "figures/plot_energy.pdf");
 normr = sqrt.([ x_sol[i][1] for i ∈ 1:Nsol ].^2 + [ x_sol[i][2] for i ∈ 1:Nsol ].^2)
 plot_normr = Plots.plot(sol.times, normr, size=(600, 600), label="distance fron the Sun")
 plot!(matrix_data[1], sqrt.(matrix_data[2].^2 + matrix_data[3].^2), label="orbital energy, local-optimal")
+plot!([0, sol.times[end]], [0.01, 0.01], label="constraint")
 savefig(plot_normr, "figures/plot_distance_from_sun.pdf");
 
 
-plot_normr = Plots.plot(sol.times[215:225], normr[215:225], size=(600, 600), label="distance fron the Sun")
+# plot_normr = Plots.plot(sol.times[215:225], normr[215:225], size=(600, 600), label="distance fron the Sun")
 
 
 # xend = x_sol[end]
