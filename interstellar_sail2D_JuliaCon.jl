@@ -1,4 +1,5 @@
 using OptimalControl
+using NLPModelsIpopt
 using Plots
 using Interpolations
 using JLD2
@@ -6,9 +7,8 @@ using JLD2
 include("kepl2cart.jl")
 include("control_ideal2D.jl")
 
-function rnorm(x)
-    eps = 1e-9
-    return sqrt.(x[1].^2 + x[2].^2 + eps^2)
+function rnorm(x; ε=1e-9)
+    return sqrt(sum(x.^2) + ε^2)
 end
 
 # Definition of the optical parameters 
@@ -141,7 +141,7 @@ x(t) = [itp1(t), itp2(t), itp3(t), itp4(t)]
 β(t)  = itp_u(t)
 
 initial_guess = (state=x, control=β)
-sol = solve(ocp, init=initial_guess, grid_size = 200)
+sol = solve(ocp; init=initial_guess, grid_size=200)
 
 plot_sol = Plots.plot(sol, size=(900, 1200))
 
