@@ -131,16 +131,14 @@ tf = t_inter[N_final]
 
 itp1 = LinearInterpolation(t_inter[N_init:N_final], [ x_inter[i][1] for i ∈ N_init:N_final ])
 itp2 = LinearInterpolation(t_inter[N_init:N_final], [ x_inter[i][2] for i ∈ N_init:N_final ])
-# itp3 = LinearInterpolation(t_inter[N_init:N_final], [ x_inter[i][3] for i ∈ N_init:N_final ])
-itp4 = LinearInterpolation(t_inter[N_init:N_final], [ x_inter[i][4] for i ∈ N_init:N_final ])
-itp5 = LinearInterpolation(t_inter[N_init:N_final], [ x_inter[i][5] for i ∈ N_init:N_final ])
-# itp6 = LinearInterpolation(t_inter[N_init:N_final], [ x_inter[i][6] for i ∈ N_init:N_final ])
+itp3 = LinearInterpolation(t_inter[N_init:N_final], [ x_inter[i][4] for i ∈ N_init:N_final ])
+itp4 = LinearInterpolation(t_inter[N_init:N_final], [ x_inter[i][5] for i ∈ N_init:N_final ])
 itp_u = LinearInterpolation(t_inter[N_init:N_final], u_inter[N_init:N_final])
 
 
 function F0(x)
     # Kepler equation
-    normr = sqrt( x[1]^2 + x[2]^2 + 1e-10)
+    normr = rnorm(x)
     r = x[1:2]
     v = x[3:4]
     dv = -mu / normr^3 * r
@@ -150,7 +148,7 @@ end
 
 function F1(x, β)
     #f = atan(x[2], x[1])
-    normr = sqrt( x[1]^2 + x[2]^2 + 1e-10)
+    normr = rnorm(x)
     cf = x[1] / normr
     sf = x[2] / normr
     rot_matrix = [cf -sf; sf  cf]
@@ -161,7 +159,7 @@ end
 
 
 function temperature(x, β)
-    temp = (Tds^4 + cos(β) / ( x[1]^2 + x[2]^2 + 1e-10) * opt_constr * heat_constr)^(1/4)
+    temp = (Tds^4 + cos(β) / ( normr = rnorm(x)) * opt_constr * heat_constr)^(1/4)
     return temp
 end
 
@@ -176,9 +174,9 @@ end
     -π/2 * 0.8 ≤ β(t) ≤ π/2 * 0.8
     x(t0) == x0
     ẋ(t) == F0(x(t)) + F1(x(t), β(t)) 
-    sqrt(x₁(t)^2 + x₂(t)^2) ≥ 0.01
-    # cos(β(t)) / ( x₁(t)^2 + x₂(t)^2 + 1e-3^2) * opt_constr * heat_constr + temp_constr ≤ 0
-    -mu / sqrt( x₁(tf)^2 + x₂(tf)^2 + 1e-3^2) + 1/2 * ( x₃(tf)^2 + x₄(tf)^2 ) → max
+    # sqrt(x₁(t)^2 + x₂(t)^2) ≥ 0.01
+    cos(β(t)) / ( rnorm(x(t)) ) * opt_constr * heat_constr + temp_constr ≤ 0
+    -mu / sqrt( rnorm(x(tf)) ) + 1/2 * ( x₃(tf)^2 + x₄(tf)^2 ) → max
 end
 
 function ocp_t0(N_0, N_f)
@@ -196,9 +194,9 @@ function ocp_t0(N_0, N_f)
         -π/2 * 0.8 ≤ β(t) ≤ π/2 * 0.8
         x(t0) == x0
         ẋ(t) == F0(x(t)) + F1(x(t), β(t)) 
-        sqrt(x₁(t)^2 + x₂(t)^2) ≥ 0.01
-        # cos(β(t)) / ( x₁(t)^2 + x₂(t)^2 + 1e-3^2) * opt_constr * heat_constr + temp_constr ≤ 0
-        -mu / sqrt( x₁(tf)^2 + x₂(tf)^2 + 1e-3^2) + 1/2 * ( x₃(tf)^2 + x₄(tf)^2 ) → max
+        # sqrt(x₁(t)^2 + x₂(t)^2) ≥ 0.01
+        cos(β(t)) / ( rnorm(x(t)) ) * opt_constr * heat_constr + temp_constr ≤ 0
+        -mu / sqrt( rnorm(x(tf)) ) + 1/2 * ( x₃(tf)^2 + x₄(tf)^2 ) → max
     end
     return ocp
 end
@@ -221,7 +219,7 @@ function fun_plot_sol(sol)
     return plot_traj2D
 end
 
-x(t) = [itp1(t), itp2(t), itp4(t), itp5(t)]
+x(t) = [itp1(t), itp2(t), itp3(t), itp4(t)]
 β(t)  = itp_u(t)
 
 initial_guess = (state=x, control=β)
@@ -260,14 +258,14 @@ sol = sol_converged
 
 # 270
 init_loop = sol
-t0_list = []
-obj_list = []
-sol_list = []
-for Nt0_local = 200:-1:200 #Nt0_local=350:-10:200
+# t0_list = []
+# obj_list = []
+# sol_list = []
+for Nt0_local = 250:-1:240 #Nt0_local=350:-10:200
     # Nt0_local = 1 
     Ntf_local = 499
     ocp_loop = ocp_t0(Nt0_local, Ntf_local)
-    for Ngrid = 2000:50:2000
+    for Ngrid = 3000:50:3000
         global sol_loop = solve(ocp_loop, init=init_loop, max_iter = 5000, grid_size = Ngrid, print_level=0)
         if sol_loop.iterations == 5000
             println("Iterations exceeded while doing the continuation on the time")
@@ -283,6 +281,8 @@ for Nt0_local = 200:-1:200 #Nt0_local=350:-10:200
         push!(sol_list, sol_loop)
     end
 end
+
+
 sol = sol_list[end]
 plot_sol = Plots.plot(sol, size=(900, 1200))
 sol = sol_loop
@@ -320,7 +320,7 @@ savefig(plot_energy, "figures/plot_energy.pdf");
 normr = sqrt.([ x_sol[i][1] for i ∈ 1:Nsol ].^2 + [ x_sol[i][2] for i ∈ 1:Nsol ].^2)
 plot_normr = Plots.plot(sol.times, normr, size=(600, 600), label="distance fron the Sun")
 plot!(matrix_data[1], sqrt.(matrix_data[2].^2 + matrix_data[3].^2), label="orbital energy, local-optimal")
-plot!([0, sol.times[end]], [0.01, 0.01], label="constraint")
+# plot!([0, sol.times[end]], [0.01, 0.01], label="constraint")
 savefig(plot_normr, "figures/plot_distance_from_sun.pdf");
 
 
