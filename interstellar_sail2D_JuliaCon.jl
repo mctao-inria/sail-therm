@@ -7,9 +7,8 @@ using JLD2
 include("kepl2cart.jl")
 include("control_ideal2D.jl")
 
-function rnorm(x)
-    eps = 1e-9
-    return sqrt.(x[1].^2 + x[2].^2 + eps^2)
+function rnorm(x; ε=1e-9)
+    return sqrt(sum(x.^2) + ε^2)
 end
 
 # Definition of the optical parameters 
@@ -131,7 +130,6 @@ end
     -mu / sqrt( rnorm(x(tf))) + 1/2 * ( x₃(tf)^2 + x₄(tf)^2 ) → max
 end
 
-
 ###########################################################################################################################################
 #                           SIMPLE CODE
 ###########################################################################################################################################
@@ -153,7 +151,6 @@ plot_traj_matlab = Plots.plot!(matrix_data[2], matrix_data[3], size=(600, 600), 
 scatter!([x_sol[1][1]], [x_sol[1][2]], label="beginning of the optimised arc" )
 scatter!([x_sol[end][1]], [x_sol[end][2]], label="end of the optimised arc" )
 scatter!([0], [0], label="Sun", color="yellow" )
-
 
 β_sol = sol.control.(sol.times)
 plot_temperature = Plots.plot(sol.times, temperature.(x_sol, β_sol), size=(600, 600), label="sail temperature")
