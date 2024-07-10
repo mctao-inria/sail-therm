@@ -1,4 +1,5 @@
 using OptimalControl
+using NLPModelsIpopt
 using Plots
 using Interpolations
 using JLD2
