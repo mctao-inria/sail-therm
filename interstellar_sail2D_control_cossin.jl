@@ -1,7 +1,8 @@
 using OptimalControl
+using NLPModelsIpopt
 using Plots
 using Interpolations
-using JLD2
+using JLD2, JSON3
 
 include("kepl2cart.jl")
 include("control_ideal2D_cossin.jl")
@@ -43,7 +44,7 @@ x0 = [r0[1:2]; v0[1:2]]                 # Initial state
 # Heat parameters for Kapton material
 spec_heat = 989 / LU^2 * TU^2                     # J/kg/K
 heat_cap = spec_heat * mass / LU^2 * TU^2        # J/K
-Tlim = 800                                   # K
+Tlim = 600                                   # K
 temp_constr = Tds^4 - Tlim^4 #Tlim^4 - Tds^4 
 
 opt_constr = (1 - rho)/(eps_f + eps_b)
@@ -82,13 +83,18 @@ N_final = N
 t0 = time_init
 tf = t_inter[N_final] 
 
-itp1 = LinearInterpolation(t_inter[N_init:N_final], [ x_inter[i][1] for i ∈ N_init:N_final ])
-itp2 = LinearInterpolation(t_inter[N_init:N_final], [ x_inter[i][2] for i ∈ N_init:N_final ])
-itp3 = LinearInterpolation(t_inter[N_init:N_final], [ x_inter[i][4] for i ∈ N_init:N_final ])
-itp4 = LinearInterpolation(t_inter[N_init:N_final], [ x_inter[i][5] for i ∈ N_init:N_final ])
-itp_u = LinearInterpolation(t_inter[N_init:N_final], u_inter[:][N_init:N_final])
-# itp_u1 = cos.(itp_u)
-# itp_u2 = sin.(itp_u)
+# itp1 = linear_interpolation(t_inter[N_init:N_final], [ x_inter[i][1] for i ∈ N_init:N_final ], extrapolation_bc=Line())
+# itp2 = linear_interpolation(t_inter[N_init:N_final], [ x_inter[i][2] for i ∈ N_init:N_final ], extrapolation_bc=Line())
+# itp3 = linear_interpolation(t_inter[N_init:N_final], [ x_inter[i][4] for i ∈ N_init:N_final ], extrapolation_bc=Line())
+# itp4 = linear_interpolation(t_inter[N_init:N_final], [ x_inter[i][5] for i ∈ N_init:N_final ], extrapolation_bc=Line())
+# itp_u = linear_interpolation(t_inter[N_init:N_final], u_inter[N_init:N_final], extrapolation_bc=Line())
+
+itp1 = linear_interpolation(t_inter, [ x_inter[i][1] for i ∈ 1:N_final ], extrapolation_bc=Line())
+itp2 = linear_interpolation(t_inter, [ x_inter[i][2] for i ∈ 1:N_final ], extrapolation_bc=Line())
+itp3 = linear_interpolation(t_inter, [ x_inter[i][4] for i ∈ 1:N_final ], extrapolation_bc=Line())
+itp4 = linear_interpolation(t_inter, [ x_inter[i][5] for i ∈ 1:N_final ], extrapolation_bc=Line())
+itp_u = linear_interpolation(t_inter, u_inter, extrapolation_bc=Line())
+
 
 function F0(x)
     # Kepler equation
@@ -139,7 +145,7 @@ function ocp_t0(N_0, N_f)
     global x0 = [x_inter[N_0][1:2]; x_inter[N_0][4:5]]
     @def ocp begin
         t ∈ [ t0, tf ], time
-        x ∈ R⁴, state
+        x = [r₁, r₂, v₁, v₂ ] ∈ R⁴, state
         u ∈ R², control
         -30 ≤ x₁(t) ≤ 30
         -30 ≤ x₂(t) ≤ 30
@@ -180,25 +186,35 @@ initial_guess = (state=x, control=u)
 sol = solve(ocp, init=initial_guess, grid_size = 200)
 
 plot_sol = Plots.plot(sol, size=(900, 1200))
+savefig(plot_sol, "figures/plot_sol.pdf");
 
 x_sol = sol.state.(sol.times)
 Nsol = length(x_sol)
-plot_traj2D = Plots.plot([ x_sol[i][1] for i ∈ 1:Nsol ], [ x_sol[i][2] for i ∈ 1:Nsol ], size=(600, 600), label="direct without initial guess")
+plot_traj2D = Plots.plot([ x_sol[i][1] for i ∈ 1:Nsol ], [ x_sol[i][2] for i ∈ 1:Nsol ], size=(600, 600), label="direct without initial guess")#, seriestype = :scatter)
 plot_traj_matlab = Plots.plot!(matrix_data[2], matrix_data[3], size=(600, 600), label="local-optimal")
 scatter!([x_sol[1][1]], [x_sol[1][2]], label="beginning of the optimised arc" )
 scatter!([x_sol[end][1]], [x_sol[end][2]], label="end of the optimised arc" )
 scatter!([0], [0], label="Sun", color="yellow" )
+savefig(plot_traj2D, "figures/plot_traj.pdf");
 
 
 u_sol = sol.control.(sol.times)
 plot_temperature = Plots.plot(sol.times, temperature.(x_sol, u_sol), size=(600, 600), label="sail temperature")
 plot!([sol.times[1], sol.times[end]], [Tlim, Tlim], label="temperature limit")
+savefig(plot_temperature, "figures/plot_temperature.pdf");
 
 energy_sol = -mu./sqrt.([x_sol[i][1] for i ∈ 1:Nsol].^2 + [x_sol[i][2] for i ∈ 1:Nsol].^2 ) + 1/2 * ([x_sol[i][3] for i ∈ 1:Nsol].^2 + [x_sol[i][4] for i ∈ 1:Nsol].^2)
 energy_local_optimal = -mu./sqrt.(matrix_data[2].^2 + matrix_data[3].^2 + matrix_data[4].^2) + 1/2 * (matrix_data[5].^2 + matrix_data[6].^2 + matrix_data[7].^2)
 
 plot_energy = Plots.plot(sol.times, energy_sol, size=(600, 600), label="orbital energy")
-plot!(matrix_data[1][N_init:N], energy_local_optimal[N_init:N], label="orbital energy, local-optimal")
+plot!(matrix_data[1], energy_local_optimal, label="orbital energy, local-optimal")
+savefig(plot_energy, "figures/plot_energy.pdf");
+
+normr = sqrt.([ x_sol[i][1] for i ∈ 1:Nsol ].^2 + [ x_sol[i][2] for i ∈ 1:Nsol ].^2)
+plot_normr = Plots.plot(sol.times, normr, size=(600, 600), label="distance fron the Sun")
+plot!(matrix_data[1], sqrt.(matrix_data[2].^2 + matrix_data[3].^2), label="orbital energy, local-optimal")
+# plot!([0, sol.times[end]], [0.01, 0.01], label="constraint")
+savefig(plot_normr, "figures/plot_distance_from_sun.pdf");
 
 ###########################################################################################################################################
 #                           CONTINUATION ON T0
@@ -208,23 +224,102 @@ plot!(matrix_data[1][N_init:N], energy_local_optimal[N_init:N], label="orbital e
 
 init_loop = sol
 # sol_list = []
-for Nt0_local = 185:-5:150
+for Nt0_local = 90:-5:90
     ocp_loop = ocp_t0(Nt0_local, N)
-    global sol_loop = solve(ocp_loop, init=init_loop, grid_size = 1500, print_level=0)
-    if sol_loop.iterations == 5000
-        println("Iterations exceeded while doing the continuation on the time")
-        break
-    end
-    global init_loop = sol_loop
-    println("Time: $(Nt0_local), Objective: $(sol_loop.objective), Iteration: $(sol_loop.iterations)")
-    p = fun_plot_sol(sol_loop)
-    display(p)
+    # for Ngrid = 1600:10:1620
+        global sol_loop = solve(ocp_loop, init=init_loop, grid_size = Ngrid, display = false)
+        # global sol_loop = solve(ocp_loop, init=init_loop, time_grid = time_grid_refined, display = false)
+    # if sol_loop.iterations == 5000
+    #     println("Iterations exceeded while doing the continuation on the time")
+    #     break
+    # end
+        global init_loop = sol_loop
+        println("Time: $(Nt0_local), Objective: $(sol_loop.objective), Iteration: $(sol_loop.iterations)")
+        p = fun_plot_sol(sol_loop)
+        display(p)
+    # end
     push!(sol_list, sol_loop)
 end
 sol = sol_list[end]
-fun_plot_sol(sol)
-x_sol = sol.state.(sol.times)
-Nsol = length(x_sol)
-energy_sol = -mu./sqrt.([x_sol[i][1] for i ∈ 1:Nsol].^2 + [x_sol[i][2] for i ∈ 1:Nsol].^2 ) + 1/2 * ([x_sol[i][3] for i ∈ 1:Nsol].^2 + [x_sol[i][4] for i ∈ 1:Nsol].^2)
-plot_energy = Plots.plot(sol.times, energy_sol, size=(600, 600), label="orbital energy")
-plot!(matrix_data[1][1:N], energy_local_optimal[1:N], label="orbital energy, local-optimal")
+
+
+# save_object("sol_11_07_120.jld2", sol)
+# sol_200 = sol
+# sol_120 = sol
+# sol_save = sol_300
+# sol_150 = sol
+# JLD save / load
+# save(sol_save, filename_prefix="solution_300")
+# sol_reloaded = load("solution")
+println("Objective from loaded solution: ", sol_reloaded.objective)
+
+# JSON export / read
+# export_ocp_solution(sol_save, filename_prefix="solution_300")
+# sol_json = import_ocp_solution("my_solution")
+# println("Objective from JSON discrete solution: ", sol_json.objective)
+
+# fun_plot_sol(sol)
+# x_sol = sol.state.(sol.times)
+# Nsol = length(x_sol)
+# energy_sol = -mu./sqrt.([x_sol[i][1] for i ∈ 1:Nsol].^2 + [x_sol[i][2] for i ∈ 1:Nsol].^2 ) + 1/2 * ([x_sol[i][3] for i ∈ 1:Nsol].^2 + [x_sol[i][4] for i ∈ 1:Nsol].^2)
+# plot_energy = Plots.plot(sol.times, energy_sol, size=(600, 600), label="orbital energy")
+# plot!(matrix_data[1][1:N], energy_local_optimal[1:N], label="orbital energy, local-optimal")
+
+# sol_loaded = load("sol.jld2")
+# sol_loaded = sol_loaded["single_stored_object"]
+
+1621
+1:100 ! 0.178474:1.4921288944444446
+101:900 1.5053981358024693: 12.107521980864197
+901:1000 ! 12.120791222222225: 13.434446116666667
+1001:1621     13.447715358024691:   21.674645
+sol.times[1001:1621]
+time_grid_refined = []
+append!(time_grid_refined, range(0.178474, 1.4921288944444446, 3*100))
+append!(time_grid_refined, range(1.5053981358024693, 12.107521980864197, 900-101+1))
+append!(time_grid_refined, range(12.120791222222225, 13.434446116666667, 5*(1000-901+1)))
+append!(time_grid_refined, range(13.447715358024691, 21.674645, (1621-1001+1)))
+# Nbegin = 900
+# Nsol = 1000
+# plot_traj2D = Plots.plot([ x_sol[i][1] for i ∈ Nbegin:Nsol ], [ x_sol[i][2] for i ∈ Nbegin:Nsol ], size=(600, 600), label="direct without initial guess")
+# plot_traj_matlab = Plots.plot!(matrix_data[2], matrix_data[3], size=(600, 600), label="local-optimal")
+# scatter!([x_sol[1][1]], [x_sol[1][2]], label="beginning of the optimised arc" )
+# scatter!([x_sol[end][1]], [x_sol[end][2]], label="end of the optimised arc" )
+# scatter!([0], [0], label="Sun", color="yellow" )
+
+
+
+
+
+
+plot_traj2D = Plots.plot([ x_sol[i][1] for i ∈ 1:Nsol ], [ x_sol[i][2] for i ∈ 1:Nsol ], size=(600, 600), label="direct without initial guess")
+plot_traj_matlab = Plots.plot!(matrix_data[2], matrix_data[3], size=(600, 600), label="local-optimal")
+scatter!([x_sol[1][1]], [x_sol[1][2]], label="beginning of the optimised arc" )
+scatter!([x_sol[end][1]], [x_sol[end][2]], label="end of the optimised arc" )
+scatter!([0], [0], label="Sun", color="yellow" )
+ylims!((-1,1))
+xlims!((-1,1))
+savefig(plot_traj2D, "figures/plot_traj_zoom.pdf");
+
+
+
+
+
+plot(t-Inter, itp1(t_inter))
+
+
+
+x(t) = [itp1(t), itp2(t), itp3(t), itp4(t)]
+u(t)  = itp_u(t)
+t_inter
+itp1(t_inter)
+plot(itp1(t_inter), itp2(t_inter))
+
+
+t_inter[1:130]
+range(0, 0.534247, 130) # premier arc (début) 500
+range(0.55369, 18.216503, 160) # 2 arc 200
+range(18.249981, 21.674645, 210) # la fin 500
+t1 = 0.534247
+time_grid = []
+push!(time_grid, range(0, 0.534247, 500), range(0.534247, 18.216503, 500)[2:end-1], range(18.216503, 21.674645, 500 ))
