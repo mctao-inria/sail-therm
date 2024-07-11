@@ -1,4 +1,5 @@
 using OptimalControl
+using NLPModelsIpopt
 using Plots
 using Interpolations
 using JLD2
@@ -6,9 +7,8 @@ using JLD2
 include("kepl2cart.jl")
 include("control_ideal2D.jl")
 
-function rnorm(x)
-    eps = 1e-9
-    return sqrt.(x[1].^2 + x[2].^2 + eps^2)
+function rnorm(x; ε=1e-9)
+    return sqrt(sum(x.^2) + ε^2)
 end
 
 # Definition of the optical parameters 
@@ -91,7 +91,7 @@ itp_u = linear_interpolation(t_inter[N_init:N_final], u_inter[N_init:N_final], e
 
 function F0(x)
     # Kepler equation
-    normr = rnorm(x)
+    normr = rnorm(x[1:2])
     r = x[1:2]
     v = x[3:4]
     dv = -mu / normr^3 * r
@@ -100,7 +100,7 @@ function F0(x)
 end
 
 function F1(x, β)
-    normr = rnorm(x)
+    normr = rnorm(x[1:2])
     cf = x[1] / normr
     sf = x[2] / normr
     rot_matrix = [cf -sf; sf  cf]
@@ -110,7 +110,7 @@ function F1(x, β)
 end
 
 function temperature(x, β)
-    normr = rnorm(x)
+    normr = rnorm(x[1:2])
     temp = (Tds^4 + cos(β) / ( normr ) * opt_constr * heat_constr)^(1/4)
     return temp
 end
@@ -126,10 +126,9 @@ end
     -π/2 * 0.8 ≤ β(t) ≤ π/2 * 0.8
     x(t0) == x0
     ẋ(t) == F0(x(t)) + F1(x(t), β(t)) 
-    cos(β(t)) / ( rnorm(x(t))) * opt_constr * heat_constr + temp_constr ≤ 0
-    -mu / sqrt( rnorm(x(tf))) + 1/2 * ( x₃(tf)^2 + x₄(tf)^2 ) → max
+    cos(β(t)) / ( rnorm(x[1:2](t))) * opt_constr * heat_constr + temp_constr ≤ 0
+    -mu / sqrt( rnorm(x[1:2](tf))) + 1/2 * ( x₃(tf)^2 + x₄(tf)^2 ) → max
 end
-
 
 ###########################################################################################################################################
 #                           SIMPLE CODE
@@ -152,7 +151,6 @@ plot_traj_matlab = Plots.plot!(matrix_data[2], matrix_data[3], size=(600, 600), 
 scatter!([x_sol[1][1]], [x_sol[1][2]], label="beginning of the optimised arc" )
 scatter!([x_sol[end][1]], [x_sol[end][2]], label="end of the optimised arc" )
 scatter!([0], [0], label="Sun", color="yellow" )
-
 
 β_sol = sol.control.(sol.times)
 plot_temperature = Plots.plot(sol.times, temperature.(x_sol, β_sol), size=(600, 600), label="sail temperature")
