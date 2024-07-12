@@ -189,8 +189,8 @@ savefig(plot_sol, "figures/plot_sol.pdf");
 
 x_sol = sol.state.(sol.times)
 Nsol = length(x_sol)
-plot_traj2D = Plots.plot([ x_sol[i][1] for i ∈ 1:Nsol ], [ x_sol[i][2] for i ∈ 1:Nsol ], size=(600, 600), label="direct without initial guess")#, seriestype = :scatter)
-plot_traj_matlab = Plots.plot!(matrix_data[2], matrix_data[3], size=(600, 600), label="local-optimal")
+plot_traj2D = Plots.plot([ x_sol[i][1] for i ∈ 1:Nsol ], [ x_sol[i][2] for i ∈ 1:Nsol ], size=(600, 600), label="direct without initial guess")#, linewidth = 2, color = "blue")#, seriestype = :scatter)
+plot_traj_matlab = Plots.plot!(matrix_data[2], matrix_data[3], size=(600, 600), label="local-optimal")#, linewidth = 2, color = "red")
 scatter!([x_sol[1][1]], [x_sol[1][2]], label="beginning of the optimised arc" )
 scatter!([x_sol[end][1]], [x_sol[end][2]], label="end of the optimised arc" )
 scatter!([0], [0], label="Sun", color="yellow" )
@@ -223,15 +223,15 @@ savefig(plot_normr, "figures/plot_distance_from_sun.pdf");
 
 init_loop = sol
 # sol_list = []
-for Nt0_local = 90:-5:90
+for Nt0_local = 1
     ocp_loop = ocp_t0(Nt0_local, N)
-    # for Ngrid = 1600:10:1620
+    for Ngrid = 2000:10:2000 #1650
         global sol_loop = solve(ocp_loop, init=init_loop, grid_size = Ngrid, display = false)
-        # global sol_loop = solve(ocp_loop, init=init_loop, time_grid = time_grid_refined, display = false)
+        # global sol_loop = CDirect.solve(ocp_loop, init=init_loop, time_grid = time_grid_refined, display = false)
     # if sol_loop.iterations == 5000
     #     println("Iterations exceeded while doing the continuation on the time")
     #     break
-    # end
+    end
         global init_loop = sol_loop
         println("Time: $(Nt0_local), Objective: $(sol_loop.objective), Iteration: $(sol_loop.iterations)")
         p = fun_plot_sol(sol_loop)
@@ -240,9 +240,9 @@ for Nt0_local = 90:-5:90
     push!(sol_list, sol_loop)
 end
 sol = sol_list[end]
+# sol_last_converged = sol
 
-
-# save_object("sol_11_07_120.jld2", sol)
+save_object("sol_12_07_ENTIRE.jld2", sol)
 # sol_200 = sol
 # sol_120 = sol
 # sol_save = sol_300
