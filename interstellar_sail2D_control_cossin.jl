@@ -129,12 +129,13 @@ end
     -30 ≤ x₂(t) ≤ 30
     -30 ≤ x₃(t) ≤ 30
     -30 ≤ x₄(t) ≤ 30
-    cos(-π/2 * 0.8) ≤ u₁(t) ≤ 1
-    sin(-π/2 * 0.8) ≤ u₂(t) ≤ sin(π/2 * 0.8)
-    u₁(t)^2 + u₂(t)^2 == 1
+    cos(π/2 * 0.8) ≤ u₁(t) ≤ 1
+    # sin(-π/2 * 0.8) ≤ u₂(t) ≤ sin(π/2 * 0.8)
+    -1 ≤ u₂(t) ≤ 1
+    u₁(t)^2 + u₂(t)^2 ≤ 1
     x(t0) == x0
     ẋ(t) == F0(x(t)) + F1(x(t), u(t)) 
-    u₁(t) / ( rnorm(x(t))) * opt_constr * heat_constr + temp_constr ≤ 0
+    (u₁(t)) / ( rnorm(x(t))) * opt_constr * heat_constr + temp_constr ≤ 0
     -mu / sqrt( rnorm(x(tf))) + 1/2 * ( x₃(tf)^2 + x₄(tf)^2 ) → max
 end
 
@@ -197,10 +198,15 @@ scatter!([0], [0], label="Sun", color="yellow" )
 savefig(plot_traj2D, "figures/plot_traj.pdf");
 
 
-u_sol = sol.control.(sol.times)
+plot_beta = plot(sol.times, [u_sol[i][2] for i ∈ 1:Nsol], label="control angle")
+savefig(plot_beta, "figures/plot_beta.pdf");
+
+
 plot_temperature = Plots.plot(sol.times, temperature.(x_sol, u_sol), size=(600, 600), label="sail temperature")
 plot!([sol.times[1], sol.times[end]], [Tlim, Tlim], label="temperature limit")
 savefig(plot_temperature, "figures/plot_temperature.pdf");
+
+plot(sol.times, asin(u_sol))
 
 energy_sol = -mu./sqrt.([x_sol[i][1] for i ∈ 1:Nsol].^2 + [x_sol[i][2] for i ∈ 1:Nsol].^2 ) + 1/2 * ([x_sol[i][3] for i ∈ 1:Nsol].^2 + [x_sol[i][4] for i ∈ 1:Nsol].^2)
 energy_local_optimal = -mu./sqrt.(matrix_data[2].^2 + matrix_data[3].^2 + matrix_data[4].^2) + 1/2 * (matrix_data[5].^2 + matrix_data[6].^2 + matrix_data[7].^2)
@@ -215,6 +221,10 @@ plot!(matrix_data[1], sqrt.(matrix_data[2].^2 + matrix_data[3].^2), label="orbit
 # plot!([0, sol.times[end]], [0.01, 0.01], label="constraint")
 savefig(plot_normr, "figures/plot_distance_from_sun.pdf");
 
+ylims!((0,0.4))
+# xlims!((12,13))
+xlims!((21,22))
+
 ###########################################################################################################################################
 #                           CONTINUATION ON T0
 ###########################################################################################################################################
@@ -226,8 +236,8 @@ init_loop = sol
 for Nt0_local = 1
     ocp_loop = ocp_t0(Nt0_local, N)
     for Ngrid = 2000:10:2000 #1650
-        global sol_loop = solve(ocp_loop, init=init_loop, grid_size = Ngrid, display = false)
-        # global sol_loop = CDirect.solve(ocp_loop, init=init_loop, time_grid = time_grid_refined, display = false)
+        # global sol_loop = solve(ocp_loop, init=init_loop, grid_size = Ngrid, display = false)
+        global sol_loop = solve(ocp_loop, time_grid = time_grid_refined, init=init_loop, display = false)
     # if sol_loop.iterations == 5000
     #     println("Iterations exceeded while doing the continuation on the time")
     #     break
@@ -248,8 +258,8 @@ save_object("sol_12_07_ENTIRE.jld2", sol)
 # sol_save = sol_300
 # sol_150 = sol
 # JLD save / load
-# save(sol_save, filename_prefix="solution_300")
-# sol_reloaded = load("solution")
+save(sol_save, filename_prefix="solution_300")
+sol_reloaded = load("solution")
 println("Objective from loaded solution: ", sol_reloaded.objective)
 
 # JSON export / read
@@ -322,3 +332,25 @@ range(18.249981, 21.674645, 210) # la fin 500
 t1 = 0.534247
 time_grid = []
 push!(time_grid, range(0, 0.534247, 500), range(0.534247, 18.216503, 500)[2:end-1], range(18.216503, 21.674645, 500 ))
+
+
+
+
+
+
+
+###########################################################################################################################################
+###########################################################################################################################################
+###########################################################################################################################################
+###########################################################################################################################################
+###########################################################################################################################################
+###########################################################################################################################################
+#                           INDIRECT
+###########################################################################################################################################
+###########################################################################################################################################
+###########################################################################################################################################
+###########################################################################################################################################
+###########################################################################################################################################
+###########################################################################################################################################
+###########################################################################################################################################
+
