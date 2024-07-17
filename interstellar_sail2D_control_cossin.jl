@@ -97,7 +97,7 @@ itp_u = linear_interpolation(t_inter, u_inter, extrapolation_bc=Line())
 
 function F0(x)
     # Kepler equation
-    normr = rnorm(x)
+    normr = rnorm(x[1:2])
     r = x[1:2]
     v = x[3:4]
     dv = -mu / normr^3 * r
@@ -106,7 +106,7 @@ function F0(x)
 end
 
 function F1(x, u)
-    normr = rnorm(x)
+    normr = rnorm(x[1:2])
     cf = x[1] / normr
     sf = x[2] / normr
     rot_matrix = [cf -sf; sf  cf]
@@ -116,7 +116,7 @@ function F1(x, u)
 end
 
 function temperature(x, u)
-    normr = rnorm(x)
+    normr = rnorm(x[1:2])
     temp = (Tds^4 + u[1] / ( normr ) * opt_constr * heat_constr)^(1/4)
     return temp
 end
@@ -129,10 +129,10 @@ end
     -30 ≤ x₂(t) ≤ 30
     -30 ≤ x₃(t) ≤ 30
     -30 ≤ x₄(t) ≤ 30
-    cos(π/2 * 0.8) ≤ u₁(t) ≤ 1
+    cos(π/2 * 0.9) ≤ u₁(t) ≤ 1
     # sin(-π/2 * 0.8) ≤ u₂(t) ≤ sin(π/2 * 0.8)
     -1 ≤ u₂(t) ≤ 1
-    u₁(t)^2 + u₂(t)^2 ≤ 1
+    u₁(t)^2 + u₂(t)^2 ≤ 1  #≤ 1
     x(t0) == x0
     ẋ(t) == F0(x(t)) + F1(x(t), u(t)) 
     (u₁(t)) / ( rnorm(x(t))) * opt_constr * heat_constr + temp_constr ≤ 0
@@ -151,8 +151,10 @@ function ocp_t0(N_0, N_f)
         -30 ≤ x₂(t) ≤ 30
         -30 ≤ x₃(t) ≤ 30
         -30 ≤ x₄(t) ≤ 30
-        cos(-π/2 * 0.8) ≤ u₁(t) ≤ 1
-        sin(-π/2 * 0.8) ≤ u₂(t) ≤ sin(π/2 * 0.8)
+        cos(-π/2 * 0.9) ≤ u₁(t) ≤ 1
+        # sin(-π/2 * 0.8) ≤ u₂(t) ≤ sin(π/2 * 0.8)
+        -1 ≤ u₂(t) ≤ 1
+        # u₁(t)^2 + u₂(t)^2 ≤ 1
         u₁(t)^2 + u₂(t)^2 == 1
         x(t0) == x0
         ẋ(t) == F0(x(t)) + F1(x(t), u(t)) 
@@ -183,65 +185,79 @@ x(t) = [itp1(t), itp2(t), itp3(t), itp4(t)]
 u(t)  = itp_u(t)
 
 initial_guess = (state=x, control=u)
-sol = solve(ocp; init=initial_guess, grid_size = 200)
+
+time_grid_non_uniform = []
+append!(time_grid_non_uniform, range(t0, t0 + (tf-t0)/2, 100)[1:end-1])
+append!(time_grid_non_uniform, range(t0 + (tf-t0)/2, tf, 200))
+
+sol = solve(ocp; init=initial_guess, grid_size = 300)
+sol = solve(ocp; init=initial_guess, time_grid = time_grid_non_uniform)
 
 plot_sol = Plots.plot(sol, size=(900, 1200))
 savefig(plot_sol, "figures/plot_sol.pdf");
 
 x_sol = sol.state.(sol.times)
 Nsol = length(x_sol)
-plot_traj2D = Plots.plot([ x_sol[i][1] for i ∈ 1:Nsol ], [ x_sol[i][2] for i ∈ 1:Nsol ], size=(600, 600), label="direct without initial guess")#, linewidth = 2, color = "blue")#, seriestype = :scatter)
-plot_traj_matlab = Plots.plot!(matrix_data[2], matrix_data[3], size=(600, 600), label="local-optimal")#, linewidth = 2, color = "red")
+plot_traj2D = Plots.plot([ x_sol[i][1] for i ∈ 1:Nsol ], [ x_sol[i][2] for i ∈ 1:Nsol ], size=(600, 600), label="direct without initial guess", linewidth = 2, color = "blue", seriestype = :scatter)
+plot_traj2D = Plots.plot([ x_sol[i][1] for i ∈ 1:Nsol ], [ x_sol[i][2] for i ∈ 1:Nsol ], size=(600, 600), label="direct without initial guess", linewidth = 2, color = "blue")#, seriestype = :scatter)
+plot_traj_matlab = Plots.plot!(matrix_data[2], matrix_data[3], size=(600, 600), label="local-optimal", linewidth = 1, color = "red")
 scatter!([x_sol[1][1]], [x_sol[1][2]], label="beginning of the optimised arc" )
 scatter!([x_sol[end][1]], [x_sol[end][2]], label="end of the optimised arc" )
 scatter!([0], [0], label="Sun", color="yellow" )
 savefig(plot_traj2D, "figures/plot_traj.pdf");
 
+u_sol = sol.control.(sol.times)
 
-plot_beta = plot(sol.times, [u_sol[i][2] for i ∈ 1:Nsol], label="control angle")
+plot_beta = plot(sol.times, asind.([u_sol[i][2] for i ∈ 1:Nsol]), label="control angle", linewidth = 2, color = "blue")
+ylabel!("[deg]")
 savefig(plot_beta, "figures/plot_beta.pdf");
+ 
 
-
-plot_temperature = Plots.plot(sol.times, temperature.(x_sol, u_sol), size=(600, 600), label="sail temperature")
-plot!([sol.times[1], sol.times[end]], [Tlim, Tlim], label="temperature limit")
+plot_temperature = Plots.plot(sol.times, temperature.(x_sol, u_sol), size=(600, 600), label="sail temperature", linewidth = 2, color = "blue")
+plot!([sol.times[1], sol.times[end]], [Tlim, Tlim], label="temperature limit", linewidth = 2, color = "red")
+ylabel!("[K]")
 savefig(plot_temperature, "figures/plot_temperature.pdf");
-
-plot(sol.times, asin(u_sol))
 
 energy_sol = -mu./sqrt.([x_sol[i][1] for i ∈ 1:Nsol].^2 + [x_sol[i][2] for i ∈ 1:Nsol].^2 ) + 1/2 * ([x_sol[i][3] for i ∈ 1:Nsol].^2 + [x_sol[i][4] for i ∈ 1:Nsol].^2)
 energy_local_optimal = -mu./sqrt.(matrix_data[2].^2 + matrix_data[3].^2 + matrix_data[4].^2) + 1/2 * (matrix_data[5].^2 + matrix_data[6].^2 + matrix_data[7].^2)
 
-plot_energy = Plots.plot(sol.times, energy_sol, size=(600, 600), label="orbital energy")
-plot!(matrix_data[1], energy_local_optimal, label="orbital energy, local-optimal")
+plot_energy = Plots.plot(sol.times, energy_sol, size=(600, 600), label="orbital energy", linewidth = 2, color = "blue")
+plot!(matrix_data[1], energy_local_optimal, label="orbital energy, local-optimal", linewidth = 1, color = "red")
 savefig(plot_energy, "figures/plot_energy.pdf");
 
 normr = sqrt.([ x_sol[i][1] for i ∈ 1:Nsol ].^2 + [ x_sol[i][2] for i ∈ 1:Nsol ].^2)
-plot_normr = Plots.plot(sol.times, normr, size=(600, 600), label="distance fron the Sun")
-plot!(matrix_data[1], sqrt.(matrix_data[2].^2 + matrix_data[3].^2), label="orbital energy, local-optimal")
+plot_normr = Plots.plot(sol.times, normr, size=(600, 600), label="distance from the Sun", linewidth = 2, color = "blue")
+plot!(matrix_data[1], sqrt.(matrix_data[2].^2 + matrix_data[3].^2), label="distance from the Sun, local-optimal", linewidth = 1, color = "red")
 # plot!([0, sol.times[end]], [0.01, 0.01], label="constraint")
 savefig(plot_normr, "figures/plot_distance_from_sun.pdf");
 
-ylims!((0,0.4))
+# ylims!((0,0.4))
 # xlims!((12,13))
-xlims!((21,22))
+# xlims!((21,22))
 
 ###########################################################################################################################################
 #                           CONTINUATION ON T0
 ###########################################################################################################################################
 
 
-
+# init_loop = initial_guess
 init_loop = sol
+# init_loop = sol_last_converged
 # sol_list = []
-for Nt0_local = 1
+for Nt0_local = 200:-10:150
     ocp_loop = ocp_t0(Nt0_local, N)
-    for Ngrid = 2000:10:2000 #1650
-        # global sol_loop = solve(ocp_loop, init=init_loop, grid_size = Ngrid, display = false)
-        global sol_loop = solve(ocp_loop, time_grid = time_grid_refined, init=init_loop, display = false)
+    time_grid_non_uniform = []
+    append!(time_grid_non_uniform, range(t0, 17.5, 600)[1:end-1])
+    append!(time_grid_non_uniform, range(17.5, 19, 500)[1:end-1])
+    append!(time_grid_non_uniform, range(19, tf, 100))
+    # for Ngrid = 2000:10:2000 #1650
+    # Ngrid = 500
+        # global sol_loop = solve(ocp_loop, init=init_loop, grid_size = Ngrid, display = false, max_iter = 3000)
+        global sol_loop = solve(ocp_loop, time_grid = time_grid_non_uniform, init=init_loop, display = false, max_iter = 3000)
     # if sol_loop.iterations == 5000
     #     println("Iterations exceeded while doing the continuation on the time")
     #     break
-    end
+    # end
         global init_loop = sol_loop
         println("Time: $(Nt0_local), Objective: $(sol_loop.objective), Iteration: $(sol_loop.iterations)")
         p = fun_plot_sol(sol_loop)
@@ -252,18 +268,24 @@ end
 sol = sol_list[end]
 # sol_last_converged = sol
 
-save_object("sol_12_07_ENTIRE.jld2", sol)
+# x1 = [ x_sol[i][1] for i ∈ 1:Nsol ]
+# findall(i->(i>0), x1)
+
+# save_object("sol_12_07_ENTIRE.jld2", sol)
 # sol_200 = sol
 # sol_120 = sol
 # sol_save = sol_300
 # sol_150 = sol
+
+sol_save = sol
+
 # JLD save / load
-save(sol_save, filename_prefix="solution_300")
-sol_reloaded = load("solution")
-println("Objective from loaded solution: ", sol_reloaded.objective)
+save(sol_save, filename_prefix="solution_200")
+# sol = load("solution_250")
+# println("Objective from loaded solution: ", sol_reloaded.objective)
 
 # JSON export / read
-# export_ocp_solution(sol_save, filename_prefix="solution_300")
+export_ocp_solution(sol_save, filename_prefix="solution_200")
 # sol_json = import_ocp_solution("my_solution")
 # println("Objective from JSON discrete solution: ", sol_json.objective)
 
