@@ -244,20 +244,24 @@ savefig(plot_normr, "figures/plot_distance_from_sun.pdf");
 init_loop = sol
 # init_loop = sol_last_converged
 # sol_list = []
-for Nt0_local = 200:-10:150
+for Nt0_local = 195:-5:195
     ocp_loop = ocp_t0(Nt0_local, N)
     time_grid_non_uniform = []
-    append!(time_grid_non_uniform, range(t0, 17.5, 600)[1:end-1])
-    append!(time_grid_non_uniform, range(17.5, 19, 500)[1:end-1])
-    append!(time_grid_non_uniform, range(19, tf, 100))
+    append!(time_grid_non_uniform, range(t0, 16, 800)[1:end-1]) #16
+    append!(time_grid_non_uniform, range(16, 19.5, 650)[1:end-1]) #19.5 650
+    append!(time_grid_non_uniform, range(19.5, tf, 200))
     # for Ngrid = 2000:10:2000 #1650
     # Ngrid = 500
         # global sol_loop = solve(ocp_loop, init=init_loop, grid_size = Ngrid, display = false, max_iter = 3000)
-        global sol_loop = solve(ocp_loop, time_grid = time_grid_non_uniform, init=init_loop, display = false, max_iter = 3000)
+        global sol_loop = solve(ocp_loop, time_grid = time_grid_non_uniform, init=init_loop, display = false, max_iter = 5000)
     # if sol_loop.iterations == 5000
     #     println("Iterations exceeded while doing the continuation on the time")
     #     break
     # end
+        x_sol = sol_loop.state.(sol.times)
+        Nsol = length(x_sol)
+        x1 = [ x_sol[i][1] for i ∈ 1:Nsol ]
+        println(sol_loop.times[findall(i->(i>0), x1)])
         global init_loop = sol_loop
         println("Time: $(Nt0_local), Objective: $(sol_loop.objective), Iteration: $(sol_loop.iterations)")
         p = fun_plot_sol(sol_loop)
@@ -280,12 +284,12 @@ sol = sol_list[end]
 sol_save = sol
 
 # JLD save / load
-save(sol_save, filename_prefix="solution_200")
-# sol = load("solution_250")
+save(sol_save, filename_prefix="solution_170")
+sol = load("solution_200")
 # println("Objective from loaded solution: ", sol_reloaded.objective)
 
 # JSON export / read
-export_ocp_solution(sol_save, filename_prefix="solution_200")
+export_ocp_solution(sol_save, filename_prefix="solution_170")
 # sol_json = import_ocp_solution("my_solution")
 # println("Objective from JSON discrete solution: ", sol_json.objective)
 
