@@ -199,6 +199,7 @@ savefig(plot_sol, "figures/plot_sol.pdf");
 x_sol = sol.state.(sol.times)
 Nsol = length(x_sol)
 plot_traj2D = Plots.plot([ x_sol[i][1] for i ∈ 1:Nsol ], [ x_sol[i][2] for i ∈ 1:Nsol ], size=(600, 600), label="direct without initial guess", linewidth = 2, color = "blue", seriestype = :scatter)
+savefig(plot_traj2D, "figures/plot_traj_dots.pdf");
 plot_traj2D = Plots.plot([ x_sol[i][1] for i ∈ 1:Nsol ], [ x_sol[i][2] for i ∈ 1:Nsol ], size=(600, 600), label="direct without initial guess", linewidth = 2, color = "blue")#, seriestype = :scatter)
 plot_traj_matlab = Plots.plot!(matrix_data[2], matrix_data[3], size=(600, 600), label="local-optimal", linewidth = 1, color = "red")
 scatter!([x_sol[1][1]], [x_sol[1][2]], label="beginning of the optimised arc" )
@@ -244,32 +245,41 @@ savefig(plot_normr, "figures/plot_distance_from_sun.pdf");
 init_loop = sol
 # init_loop = sol_last_converged
 # sol_list = []
-for Nt0_local = 195:-5:195
+time_grid_non_uniform = []
+append!(time_grid_non_uniform, range(0, 12, 200)[1:end-1]) #14 200
+append!(time_grid_non_uniform, range(12, 17, 300)[1:end-1]) #17 400
+append!(time_grid_non_uniform, range(17, tf, 200))
+
+for Nt0_local = 1:-1:1
     ocp_loop = ocp_t0(Nt0_local, N)
-    time_grid_non_uniform = []
-    append!(time_grid_non_uniform, range(t0, 16, 800)[1:end-1]) #16
-    append!(time_grid_non_uniform, range(16, 19.5, 650)[1:end-1]) #19.5 650
-    append!(time_grid_non_uniform, range(19.5, tf, 200))
+    # global time_grid_non_uniform = pushfirst!(time_grid_non_uniform, t0)
     # for Ngrid = 2000:10:2000 #1650
     # Ngrid = 500
         # global sol_loop = solve(ocp_loop, init=init_loop, grid_size = Ngrid, display = false, max_iter = 3000)
-        global sol_loop = solve(ocp_loop, time_grid = time_grid_non_uniform, init=init_loop, display = false, max_iter = 5000)
+        global sol_loop = solve(ocp_loop, time_grid = time_grid_non_uniform, init=init_loop, display = false, max_iter = 3000)
     # if sol_loop.iterations == 5000
     #     println("Iterations exceeded while doing the continuation on the time")
     #     break
     # end
-        x_sol = sol_loop.state.(sol.times)
-        Nsol = length(x_sol)
-        x1 = [ x_sol[i][1] for i ∈ 1:Nsol ]
-        println(sol_loop.times[findall(i->(i>0), x1)])
-        global init_loop = sol_loop
+        # x_sol = sol_loop.state.(sol.times)
+        # Nsol = length(x_sol)
+        # x1 = [ x_sol[i][1] for i ∈ 1:Nsol ]
+        # iii = sol_loop.times[findall(i->(i>0), x1)]
+        # println("The first time of positive x is: $(iii[1]), The last is: $(iii[end])")
+        if sol_loop.objective < 2.5 && sol_loop.iterations < 3000
+            global init_loop = sol_loop
+            save(sol_loop, filename_prefix="solution_$(Nt0_local)")
+            export_ocp_solution(sol_loop, filename_prefix="solution_$(Nt0_local)")
+        end
         println("Time: $(Nt0_local), Objective: $(sol_loop.objective), Iteration: $(sol_loop.iterations)")
-        p = fun_plot_sol(sol_loop)
-        display(p)
+        # p = fun_plot_sol(sol_loop)
+        # display(p)
     # end
     push!(sol_list, sol_loop)
 end
+
 sol = sol_list[end]
+# sol_145 = sol
 # sol_last_converged = sol
 
 # x1 = [ x_sol[i][1] for i ∈ 1:Nsol ]
@@ -284,12 +294,13 @@ sol = sol_list[end]
 sol_save = sol
 
 # JLD save / load
-save(sol_save, filename_prefix="solution_170")
-sol = load("solution_200")
+# save(sol_save, filename_prefix="solution_145")
+sol = load("solution_4")
 # println("Objective from loaded solution: ", sol_reloaded.objective)
+# sol = load("sol_12_07_ENTIRE")
 
 # JSON export / read
-export_ocp_solution(sol_save, filename_prefix="solution_170")
+# export_ocp_solution(sol_save, filename_prefix="solution_145")
 # sol_json = import_ocp_solution("my_solution")
 # println("Objective from JSON discrete solution: ", sol_json.objective)
 
@@ -300,7 +311,7 @@ export_ocp_solution(sol_save, filename_prefix="solution_170")
 # plot_energy = Plots.plot(sol.times, energy_sol, size=(600, 600), label="orbital energy")
 # plot!(matrix_data[1][1:N], energy_local_optimal[1:N], label="orbital energy, local-optimal")
 
-# sol_loaded = load("sol.jld2")
+# sol_loaded = jld2.load("sol_12_07_ENTIRE.jld2")
 # sol_loaded = sol_loaded["single_stored_object"]
 
 1621
