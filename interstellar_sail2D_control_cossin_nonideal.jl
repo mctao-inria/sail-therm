@@ -6,6 +6,7 @@ using JLD2, JSON3
 
 include("kepl2cart.jl")
 include("control_ideal2D_cossin.jl")
+include("control_nonideal2D_cossin.jl")
 
 function rnorm(x; ε=1e-9)
     return sqrt(sum(x.^2) + ε^2)
@@ -13,8 +14,17 @@ end
 
 # Definition of the optical parameters 
 rho = 0.88 # Specular reflection coefficient
+rho = 0.1
 eps_f = 0.05 # Emissivity front coeff 
 eps_b = 0.55 # Emissivity back coeff 4
+s            = 1;                    # Diffuse reflection coefficient 
+Bf           = 0.79;                    # Front Lambertian coeff 0.79
+Bb           = 0.55;                    # Back Lambertian coeff 0.55
+BBfb          = (Bf * eps_f - Bb * eps_b) / (eps_b + eps_f); 
+b            = [1 - rho * s, 2 * rho * s, Bf * rho * (1 - s) + (1 - rho) * BBfb];
+# b = [0, 2, 0]
+b = [1, 0, -0.4383]
+# b = [1, 0, 0]
 
 # Solar and space constants
 LU = 1.495978707e11  # (m) Astronautical unit 
@@ -76,7 +86,7 @@ u_inter = control_ideal.(x_inter)
 N_init = 350
 time_init = t_inter[N_init]
 x0 = [x_inter[N_init][1:2]; x_inter[N_init][4:5]]
-
+time_grid_nonuniform = t_inter[N_init:N]
 N_final = N
 
 t0 = time_init
@@ -110,7 +120,8 @@ function F1(x, u)
     cf = x[1] / normr
     sf = x[2] / normr
     rot_matrix = [cf -sf; sf  cf]
-    dvdt = rot_matrix * srpsail2D(x, u, epsilon)
+    # dvdt = rot_matrix * srpsail2D(x, u, epsilon)
+    dvdt = rot_matrix * srpsailnonideail2D(x, u, epsilon, b)
     dxdt = [0; 0; dvdt]
     return dxdt
 end
@@ -130,6 +141,7 @@ end
     -30 ≤ x₃(t) ≤ 30
     -30 ≤ x₄(t) ≤ 30
     cos(π/2 * 0.9) ≤ u₁(t) ≤ 1
+    # cos(π/2 * 0.5) ≤ u₁(t) ≤ 1
     # sin(-π/2 * 0.8) ≤ u₂(t) ≤ sin(π/2 * 0.8)
     -1 ≤ u₂(t) ≤ 1
     u₁(t)^2 + u₂(t)^2 ≤ 1  #≤ 1
@@ -154,8 +166,8 @@ function ocp_t0(N_0, N_f)
         cos(-π/2 * 0.9) ≤ u₁(t) ≤ 1
         # sin(-π/2 * 0.8) ≤ u₂(t) ≤ sin(π/2 * 0.8)
         -1 ≤ u₂(t) ≤ 1
-        # u₁(t)^2 + u₂(t)^2 ≤ 1
-        u₁(t)^2 + u₂(t)^2 == 1
+        u₁(t)^2 + u₂(t)^2 ≤ 1
+        # u₁(t)^2 + u₂(t)^2 == 1
         x(t0) == x0
         ẋ(t) == F0(x(t)) + F1(x(t), u(t)) 
         u₁(t) / ( rnorm(x(t))) * opt_constr * heat_constr + temp_constr ≤ 0
@@ -186,18 +198,21 @@ u(t)  = itp_u(t)
 
 initial_guess = (state=x, control=u)
 
-time_grid_non_uniform = []
-append!(time_grid_non_uniform, range(t0, t0 + (tf-t0)/2, 100)[1:end-1])
-append!(time_grid_non_uniform, range(t0 + (tf-t0)/2, tf, 200))
+# time_grid_non_uniform = []
+# append!(time_grid_non_uniform, range(t0, t0 + (tf-t0)/2, 100)[1:end-1])
+# append!(time_grid_non_uniform, range(t0 + (tf-t0)/2, tf, 200))
 
-sol = solve(ocp; init=initial_guess, grid_size = 300)
-sol = solve(ocp; init=initial_guess, time_grid = time_grid_non_uniform)
+sol = solve(ocp; init=initial_guess, grid_size = 400, max_iter = 3000)
+# sol = solve(ocp; init=initial_guess, time_grid = time_grid_nonuniform)
+# sol = solve(ocp; init=initial_guess, time_grid = time_grid_non_uniform)
+# time_grid_nonuniform
 
 plot_sol = Plots.plot(sol, size=(900, 1200))
 savefig(plot_sol, "figures/plot_sol.pdf");
 
 x_sol = sol.state.(sol.times)
 Nsol = length(x_sol)
+# Nsol = 200
 plot_traj2D = Plots.plot([ x_sol[i][1] for i ∈ 1:Nsol ], [ x_sol[i][2] for i ∈ 1:Nsol ], size=(600, 600), label="direct without initial guess", linewidth = 2, color = "blue", seriestype = :scatter)
 savefig(plot_traj2D, "figures/plot_traj_dots.pdf");
 plot_traj2D = Plots.plot([ x_sol[i][1] for i ∈ 1:Nsol ], [ x_sol[i][2] for i ∈ 1:Nsol ], size=(600, 600), label="direct without initial guess", linewidth = 2, color = "blue")#, seriestype = :scatter)
@@ -239,25 +254,51 @@ savefig(plot_normr, "figures/plot_distance_from_sun.pdf");
 ###########################################################################################################################################
 #                           CONTINUATION ON T0
 ###########################################################################################################################################
-
-
+# 142-340:0.056151306532663314
+# 341(12)-639:0.016722408026755176 +-
+# 640(17) - 838 :0.02349067839196195
+# x > 0 : 12.65217391304348 - 12.735785953177256 (7) && 0 - 0.102873 (70)
+# sol = load("run_17_07/solution_4")
+# newtimegrid = sol.times
+# newtimegrid = []
+# append!(newtimegrid, time_grid_non_uniform[1:141])
+# append!(newtimegrid, time_grid_non_uniform[142:5:342])
+# append!(newtimegrid, time_grid_non_uniform[343:1:457])
+# append!(newtimegrid, time_grid_non_uniform[458:20:838])
 # init_loop = initial_guess
+# sol = load("solution_200")
 init_loop = sol
 # init_loop = sol_last_converged
 # sol_list = []
-time_grid_non_uniform = []
-append!(time_grid_non_uniform, range(0, 12, 200)[1:end-1]) #14 200
-append!(time_grid_non_uniform, range(12, 17, 300)[1:end-1]) #17 400
-append!(time_grid_non_uniform, range(17, tf, 200))
-
-for Nt0_local = 1:-1:1
+time_grid_nonuniform = sol.times
+# time_grid_non_uniform = []
+# append!(time_grid_non_uniform, range(t0, 12, 150)[1:end-1]) #14 200
+# append!(time_grid_non_uniform, range(12, 19.5, 200)[1:end-1]) #17 400
+# append!(time_grid_non_uniform, range(19.5, tf, 100))
+# 18.701935 - 18.762195
+# 309 - 313
+# time_grid_non_uniform1 = []
+# append!(time_grid_non_uniform1, time_grid_nonuniform[4:308])
+# append!(time_grid_non_uniform1, range(18.701935,18.762195, 10))
+# append!(time_grid_non_uniform1, time_grid_nonuniform[314:end])
+# newtime = []
+# append!(newtime, )
+# time_grid_nonuniform = sol.times[1:50]
+# append!(time_grid_nonuniform, range(sol.times[51], sol.times[1050], 900))
+for Nt0_local = 149:-1:1
     ocp_loop = ocp_t0(Nt0_local, N)
-    # global time_grid_non_uniform = pushfirst!(time_grid_non_uniform, t0)
+    # Ngrid = 500
+    # time_grid_non_uniform = []
+    # append!(time_grid_non_uniform, range(t0, 13, 150)[1:end-1]) #14 200
+    # append!(time_grid_non_uniform, range(13, 18.5, 200)[1:end-1]) #17 400
+    # append!(time_grid_non_uniform, range(18.5, tf, 100))
+    global time_grid_nonuniform = pushfirst!(time_grid_nonuniform, t0)
     # for Ngrid = 2000:10:2000 #1650
     # Ngrid = 500
         # global sol_loop = solve(ocp_loop, init=init_loop, grid_size = Ngrid, display = false, max_iter = 3000)
-        global sol_loop = solve(ocp_loop, time_grid = time_grid_non_uniform, init=init_loop, display = false, max_iter = 3000)
-    # if sol_loop.iterations == 5000
+        global sol_loop = solve(ocp_loop, time_grid = time_grid_nonuniform, init=init_loop, display = false, max_iter = 3000)
+        # global sol_loop = solve(ocp_loop, time_grid = newtimegrid, init=init_loop, display = false, max_iter = 3000)
+        # if sol_loop.iterations == 5000
     #     println("Iterations exceeded while doing the continuation on the time")
     #     break
     # end
@@ -277,8 +318,19 @@ for Nt0_local = 1:-1:1
     # end
     push!(sol_list, sol_loop)
 end
+sol = sol_list[end-148]
+for i = 0:149
+    sol = sol_list[end-i]
 
-sol = sol_list[end]
+    # plot_sol = Plots.plot(sol, size=(900, 1200))
+            x_sol = sol.state.(sol.times)
+    Nsol = length(x_sol)
+# Nsol = 200
+plot_traj2D = Plots.plot([ x_sol[i][1] for i ∈ 1:Nsol ], [ x_sol[i][2] for i ∈ 1:Nsol ], size=(600, 600), label="direct without initial guess", linewidth = 2, color = "blue", seriestype = :scatter)
+    display(plot_traj2D)
+    sleep(1)
+    plot_traj_matlab = Plots.plot!(matrix_data[2], matrix_data[3], size=(600, 600), label="local-optimal", linewidth = 1, color = "red")
+end
 # sol_145 = sol
 # sol_last_converged = sol
 
@@ -295,7 +347,7 @@ sol_save = sol
 
 # JLD save / load
 # save(sol_save, filename_prefix="solution_145")
-sol = load("solution_4")
+# sol = load("run_17_07/solution_4")
 # println("Objective from loaded solution: ", sol_reloaded.objective)
 # sol = load("sol_12_07_ENTIRE")
 
@@ -314,11 +366,11 @@ sol = load("solution_4")
 # sol_loaded = jld2.load("sol_12_07_ENTIRE.jld2")
 # sol_loaded = sol_loaded["single_stored_object"]
 
-1621
-1:100 ! 0.178474:1.4921288944444446
-101:900 1.5053981358024693: 12.107521980864197
-901:1000 ! 12.120791222222225: 13.434446116666667
-1001:1621     13.447715358024691:   21.674645
+# 1621
+# 1:100 ! 0.178474:1.4921288944444446
+# 101:900 1.5053981358024693: 12.107521980864197
+# 901:1000 ! 12.120791222222225: 13.434446116666667
+# 1001:1621     13.447715358024691:   21.674645
 sol.times[1001:1621]
 time_grid_refined = []
 append!(time_grid_refined, range(0.178474, 1.4921288944444446, 3*100))

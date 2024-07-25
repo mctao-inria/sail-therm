@@ -1,5 +1,6 @@
 [deps]
 CTDirect = "790bbbee-bee9-49ee-8912-a9de031322d5"
+Colors = "5ae59095-9a9b-59fe-a467-6f913c188581"
 Interpolations = "a98d9a8b-a2ab-59e6-89dd-64a1c18fca59"
 JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 NLPModelsIpopt = "f4238b75-b362-5c4c-b852-0801c9a21d71"

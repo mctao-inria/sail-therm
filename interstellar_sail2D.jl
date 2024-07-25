@@ -7,12 +7,10 @@
 #Pkg.add("Interpolations")
 
 using OptimalControl
-#using LinearAlgebra
-#using ForwardDiff
-#using MINPACK
+using NLPModelsIpopt
 using Plots
 using Interpolations
-using JLD2
+using JLD2, JSON3
 
 include("kepl2cart.jl")
 include("control_ideal2D.jl")
@@ -129,12 +127,11 @@ N_final = N
 t0 = time_init
 tf = t_inter[N_final] 
 
-itp1 = LinearInterpolation(t_inter[N_init:N_final], [ x_inter[i][1] for i ∈ N_init:N_final ])
-itp2 = LinearInterpolation(t_inter[N_init:N_final], [ x_inter[i][2] for i ∈ N_init:N_final ])
-itp3 = LinearInterpolation(t_inter[N_init:N_final], [ x_inter[i][4] for i ∈ N_init:N_final ])
-itp4 = LinearInterpolation(t_inter[N_init:N_final], [ x_inter[i][5] for i ∈ N_init:N_final ])
-itp_u = LinearInterpolation(t_inter[N_init:N_final], u_inter[N_init:N_final])
-
+itp1 = linear_interpolation(t_inter, [ x_inter[i][1] for i ∈ 1:N_final ], extrapolation_bc=Line())
+itp2 = linear_interpolation(t_inter, [ x_inter[i][2] for i ∈ 1:N_final ], extrapolation_bc=Line())
+itp3 = linear_interpolation(t_inter, [ x_inter[i][4] for i ∈ 1:N_final ], extrapolation_bc=Line())
+itp4 = linear_interpolation(t_inter, [ x_inter[i][5] for i ∈ 1:N_final ], extrapolation_bc=Line())
+itp_u = linear_interpolation(t_inter, u_inter, extrapolation_bc=Line())
 
 function F0(x)
     # Kepler equation
@@ -171,7 +168,7 @@ end
     -30 ≤ x₂(t) ≤ 30
     -30 ≤ x₃(t) ≤ 30
     -30 ≤ x₄(t) ≤ 30
-    -π/2 * 0.8 ≤ β(t) ≤ π/2 * 0.8
+    -π/2 * 0.9 ≤ β(t) ≤ π/2 * 0.9
     x(t0) == x0
     ẋ(t) == F0(x(t)) + F1(x(t), β(t)) 
     # sqrt(x₁(t)^2 + x₂(t)^2) ≥ 0.01
@@ -191,7 +188,7 @@ function ocp_t0(N_0, N_f)
         -30 ≤ x₂(t) ≤ 30
         -30 ≤ x₃(t) ≤ 30
         -30 ≤ x₄(t) ≤ 30
-        -π/2 * 0.8 ≤ β(t) ≤ π/2 * 0.8
+        -π/2 * 0.9 ≤ β(t) ≤ π/2 * 0.9
         x(t0) == x0
         ẋ(t) == F0(x(t)) + F1(x(t), β(t)) 
         # sqrt(x₁(t)^2 + x₂(t)^2) ≥ 0.01
