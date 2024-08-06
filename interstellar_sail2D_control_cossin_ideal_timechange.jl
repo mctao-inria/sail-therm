@@ -51,7 +51,7 @@ heat_constr = Cs/sigma
 
 # Integration 
 t0 = 0
-tf = 3600 * 24 * 30 * 12 * 3.5 / TU 
+tff = 3600 * 24 * 30 * 12 * 3.5 / TU 
 
 # Read of the initial guess from Matlab
 filename = "matrix.txt"
@@ -73,27 +73,33 @@ N = length(t_inter)
 x_inter = [ [ matrix_data[i][j] for i ∈ 2:7 ] for j ∈ 1:N ]
 u_inter = control_ideal.(x_inter)
 
-N_init = 490
+N_init = 1
 time_init = t_inter[N_init]
 x0 = [x_inter[N_init][1:2]; x_inter[N_init][4:5]]
 # time_grid_nonuniform = t_inter[N_init:N]
 N_final = N
+
+t0 = 0
+t_final = (tff-time_init)/(tff-t0) * tff
+tf = t_final / 10
+t_range = range(t0, tf, N_final-N_init+1)
 # xf = [x_inter[N_final][1:2]; x_inter[N_final][4:5]]
 # t_rescaled = t_inter ./ ([ x_inter[i][1] for i ∈ 1:N ].^2 + [ x_inter[i][2] for i ∈ 1:N ].^2)
 # t0 = time_init #/ (x00[1]^2 + x00[2]^2)
 # tf = t_inter[N_final] #/ (x00[1]^2 + x00[2]^2) #(xf[1]^2 + xf[2]^2)
 # ([ x_inter[i][1] for i ∈ 1:N ].^2 + [ x_inter[i][2] for i ∈ 1:N ].^2)
-# itp1 = linear_interpolation(t_inter[N_init:N_final], [ x_inter[i][1] for i ∈ N_init:N_final ], extrapolation_bc=Line())
-# itp2 = linear_interpolation(t_inter[N_init:N_final], [ x_inter[i][2] for i ∈ N_init:N_final ], extrapolation_bc=Line())
-# itp3 = linear_interpolation(t_inter[N_init:N_final], [ x_inter[i][4] for i ∈ N_init:N_final ], extrapolation_bc=Line())
-# itp4 = linear_interpolation(t_inter[N_init:N_final], [ x_inter[i][5] for i ∈ N_init:N_final ], extrapolation_bc=Line())
-# itp_u = linear_interpolation(t_inter[N_init:N_final], u_inter[N_init:N_final], extrapolation_bc=Line())
+itp1 = linear_interpolation(t_range[:], [ x_inter[i][1] for i ∈ N_init:N_final ], extrapolation_bc=Line())
+itp2 = linear_interpolation(t_range, [ x_inter[i][2] for i ∈ N_init:N_final ], extrapolation_bc=Line())
+itp3 = linear_interpolation(t_range, [ x_inter[i][4] for i ∈ N_init:N_final ], extrapolation_bc=Line())
+itp4 = linear_interpolation(t_range, [ x_inter[i][5] for i ∈ N_init:N_final ], extrapolation_bc=Line())
+itp_u = linear_interpolation(t_range, u_inter[N_init:N_final], extrapolation_bc=Line())
 
-itp1 = linear_interpolation(t_inter, [ x_inter[i][1] for i ∈ 1:N_final ], extrapolation_bc=Line())
-itp2 = linear_interpolation(t_inter, [ x_inter[i][2] for i ∈ 1:N_final ], extrapolation_bc=Line())
-itp3 = linear_interpolation(t_inter, [ x_inter[i][4] for i ∈ 1:N_final ], extrapolation_bc=Line())
-itp4 = linear_interpolation(t_inter, [ x_inter[i][5] for i ∈ 1:N_final ], extrapolation_bc=Line())
-itp_u = linear_interpolation(t_inter, u_inter, extrapolation_bc=Line())
+
+#itp1 = linear_interpolation(t_inter, [ x_inter[i][1] for i ∈ 1:N_final ], extrapolation_bc=Line())
+#itp2 = linear_interpolation(t_inter, [ x_inter[i][2] for i ∈ 1:N_final ], extrapolation_bc=Line())
+#itp3 = linear_interpolation(t_inter, [ x_inter[i][4] for i ∈ 1:N_final ], extrapolation_bc=Line())
+#itp4 = linear_interpolation(t_inter, [ x_inter[i][5] for i ∈ 1:N_final ], extrapolation_bc=Line())
+#itp_u = linear_interpolation(t_inter, u_inter, extrapolation_bc=Line())
 
 
 function F0(x)
@@ -169,6 +175,34 @@ function ocp_t0(N_0, N_f)
     return ocp
 end
 
+function ocp_time(t_0, t_f, x_0)
+    global t0 = t_0
+    global tf = t_f
+    global x0 = x_0 #[x_inter[N_0][1:2]; x_inter[N_0][4:5]]
+    # global t0 = t_inter[N_0] #/ (x0[1]^2 + x0[2]^2)
+    # global tf = t_inter[N_final] #/ (x0[1]^2 + x0[2]^2) 
+
+    @def ocp begin
+        t ∈ [ t0, tf ], time
+        x = [r₁, r₂, v₁, v₂ ] ∈ R⁴, state
+        u ∈ R², control
+        -30 ≤ x₁(t) ≤ 30
+        -30 ≤ x₂(t) ≤ 30
+        -30 ≤ x₃(t) ≤ 30
+        -30 ≤ x₄(t) ≤ 30
+        cos(-π/2 * 0.9) ≤ u₁(t) ≤ 1
+        # sin(-π/2 * 0.8) ≤ u₂(t) ≤ sin(π/2 * 0.8)
+        -1 ≤ u₂(t) ≤ 1
+        u₁(t)^2 + u₂(t)^2 ≤ 1
+        # u₁(t)^2 + u₂(t)^2 == 1
+        x(t0) == x0
+        ẋ(t) == F0(x(t)) + F1(x(t), u(t)) 
+        u₁(t) / ( rnorm(x(t))) * opt_constr * heat_constr + temp_constr ≤ 0
+        -mu / sqrt( rnorm(x(tf))) + 1/2 * ( x₃(tf)^2 + x₄(tf)^2 ) → max
+    end
+    return ocp
+end
+
 function fun_plot_sol(sol)
     x_sol = sol.state.(sol.times)
     Nsol = length(x_sol)
@@ -189,6 +223,9 @@ end
 x(t) = [itp1(t), itp2(t), itp3(t), itp4(t)]
 u(t)  = itp_u(t)
 
+# tf = tf*1.1
+# init = sol
+
 initial_guess = (state=x, control=u)
 
 # time_grid_non_uniform = []
@@ -196,53 +233,59 @@ initial_guess = (state=x, control=u)
 # append!(time_grid_non_uniform, range(t0 + (tf-t0)/2, tf, 200))
 
 sol = solve(ocp; init=initial_guess, grid_size = 400, max_iter = 3000)
-sol = solve(ocp; grid_size = 400, max_iter = 3000)
+sol = solve(ocp; init=init, grid_size = 400, max_iter = 3000)
+# sol = solve(ocp; grid_size = 400, max_iter = 3000)
+
+x0 =[x_inter[N_0][1:2]; x_inter[N_0][4:5]]
 
 # sol = solve(ocp; init=initial_guess, time_grid = time_grid_nonuniform)
 # sol = solve(ocp; init=initial_guess, time_grid = time_grid_non_uniform)
 # time_grid_nonuniform
 
 plot_sol = Plots.plot(sol, size=(900, 1200))
-savefig(plot_sol, "figures/plot_sol.pdf");
+savefig(plot_sol, "figures/plot_sol.pdf")
 
 x_sol = sol.state.(sol.times)
 Nsol = length(x_sol)
 # Nsol = 200
 plot_traj2D = Plots.plot([ x_sol[i][1] for i ∈ 1:Nsol ], [ x_sol[i][2] for i ∈ 1:Nsol ], size=(600, 600), label="direct without initial guess", linewidth = 2, color = "blue", seriestype = :scatter)
-savefig(plot_traj2D, "figures/plot_traj_dots.pdf");
+savefig(plot_traj2D, "figures/plot_traj_dots.pdf")
 plot_traj2D = Plots.plot([ x_sol[i][1] for i ∈ 1:Nsol ], [ x_sol[i][2] for i ∈ 1:Nsol ], size=(600, 600), label="direct without initial guess", linewidth = 2, color = "blue")#, seriestype = :scatter)
 plot_traj_matlab = Plots.plot!(matrix_data[2], matrix_data[3], size=(600, 600), label="local-optimal", linewidth = 1, color = "red")
 scatter!([x_sol[1][1]], [x_sol[1][2]], label="beginning of the optimised arc" )
 scatter!([x_sol[end][1]], [x_sol[end][2]], label="end of the optimised arc" )
 scatter!([0], [0], label="Sun", color="yellow" )
-savefig(plot_traj2D, "figures/plot_traj.pdf");
+savefig(plot_traj2D, "figures/plot_traj.pdf")
 
 u_sol = sol.control.(sol.times)
 
 # t_rescaled = sol.times * ([ x_sol[i][1] for i ∈ 1:Nsol ].^2 + [ x_sol[i][2] for i ∈ 1:Nsol ].^2)
 t_rescaled = sol.times * (x_sol[1][1].^2 + x_sol[1][2] ^2)
-plot_beta = plot(t_rescaled, asind.([u_sol[i][2] for i ∈ 1:Nsol]), label="control angle", linewidth = 2, color = "blue")
+# plot_beta = plot(t_rescaled, asind.([u_sol[i][2] for i ∈ 1:Nsol]), label="control angle", linewidth = 2, color = "blue")
+plot_beta = plot(sol.times, asind.([u_sol[i][2] for i ∈ 1:Nsol]), label="control angle", linewidth = 2, color = "blue")
 ylabel!("[deg]")
-savefig(plot_beta, "figures/plot_beta.pdf");
+savefig(plot_beta, "figures/plot_beta.pdf")
  
 
-plot_temperature = Plots.plot(t_rescaled, temperature.(x_sol, u_sol), size=(600, 600), label="sail temperature", linewidth = 2, color = "blue")
+plot_temperature = Plots.plot(sol.times, temperature.(x_sol, u_sol), size=(600, 600), label="sail temperature", linewidth = 2, color = "blue")
+# plot_temperature = Plots.plot(t_rescaled, temperature.(x_sol, u_sol), size=(600, 600), label="sail temperature", linewidth = 2, color = "blue")
 plot!([t_rescaled[1], t_rescaled[end]], [Tlim, Tlim], label="temperature limit", linewidth = 2, color = "red")
 ylabel!("[K]")
-savefig(plot_temperature, "figures/plot_temperature.pdf");
+savefig(plot_temperature, "figures/plot_temperature.pdf")
 
-energy_sol = -mu./sqrt.([x_sol[i][1] for i ∈ 1:Nsol].^2 + [x_sol[i][2] for i ∈ 1:Nsol].^2 ) + 1/2 * ([x_sol[i][3] for i ∈ 1:Nsol].^2 + [x_sol[i][4] for i ∈ 1:Nsol].^2)
+energy_sol = -mu./sqrt.([x_sol[i][1] for i ∈ 1:Nsol].^2 + [x_sol[i][2] for i ∈ 1:Nsol].^2) + 1/2 * ([x_sol[i][3] for i ∈ 1:Nsol].^2 + [x_sol[i][4] for i ∈ 1:Nsol].^2)
 energy_local_optimal = -mu./sqrt.(matrix_data[2].^2 + matrix_data[3].^2 + matrix_data[4].^2) + 1/2 * (matrix_data[5].^2 + matrix_data[6].^2 + matrix_data[7].^2)
 
-plot_energy = Plots.plot(t_rescaled , energy_sol, size=(600, 600), label="orbital energy", linewidth = 2, color = "blue")
+plot_energy = Plots.plot(sol.times, energy_sol, size=(600, 600), label="orbital energy", linewidth = 2, color = "blue")
+# plot_energy = Plots.plot(t_rescaled, energy_sol, size=(600, 600), label="orbital energy", linewidth = 2, color = "blue")
 plot!(matrix_data[1], energy_local_optimal, label="orbital energy, local-optimal", linewidth = 1, color = "red")
-savefig(plot_energy, "figures/plot_energy.pdf");
+savefig(plot_energy, "figures/plot_energy.pdf")
 
 normr = sqrt.([ x_sol[i][1] for i ∈ 1:Nsol ].^2 + [ x_sol[i][2] for i ∈ 1:Nsol ].^2)
 plot_normr = Plots.plot(sol.times, normr, size=(600, 600), label="distance from the Sun", linewidth = 2, color = "blue")
 plot!(matrix_data[1], sqrt.(matrix_data[2].^2 + matrix_data[3].^2), label="distance from the Sun, local-optimal", linewidth = 1, color = "red")
 # plot!([0, sol.times[end]], [0.01, 0.01], label="constraint")
-savefig(plot_normr, "figures/plot_distance_from_sun.pdf");
+savefig(plot_normr, "figures/plot_distance_from_sun.pdf")
 
 # ylims!((0,0.4))
 # xlims!((12,13))
@@ -265,7 +308,7 @@ savefig(plot_normr, "figures/plot_distance_from_sun.pdf");
 # init_loop = initial_guess
 init_loop = sol
 # init_loop = sol_last_converged
-sol_list = []
+# sol_list = []
 # time_grid_nonuniform = sol.times
 # time_grid_non_uniform = []
 # append!(time_grid_non_uniform, range(t0, 12, 150)[1:end-1]) #14 200
@@ -278,8 +321,29 @@ sol_list = []
 # append!(time_grid_non_uniform1, range(18.701935,18.762195, 10))
 # append!(time_grid_non_uniform1, time_grid_nonuniform[314:end])
 
-for Nt0_local = 480:-10:450
-    ocp_loop = ocp_t0(Nt0_local, N)
+
+for Ndiv = 1:-0.1:0.5
+    t_0 = 0
+    t_f = t_final / Ndiv
+    ocp_loop = ocp_time(t_0, t_f, x0)
+    Ngrid = 200
+    global sol_loop = solve(ocp_loop, init=init_loop, grid_size = Ngrid, display = false, max_iter = 3000)
+    if sol_loop.objective < 2.5 && sol_loop.iterations < 3000
+        global init_loop = sol_loop
+        save(sol_loop, filename_prefix="solution_timechange_$(Ndiv)")
+        export_ocp_solution(sol_loop, filename_prefix="solution_timechange_$(Ndiv)")
+    end
+    println("Time: $(Ndiv), Objective: $(sol_loop.objective), Iteration: $(sol_loop.iterations)")
+    push!(sol_list, sol_loop)
+end
+
+
+for Nt0_local = 479:-5:450
+    t_0 = 0
+    t_f = t_f * 1.1
+    x_0 = [x_inter[Nt0_local][1:2]; x_inter[Nt0_local][4:5]]
+    ocp_loop = ocp_time(t_0, t_f, x_0)
+    # ocp_loop = ocp_t0(Nt0_local, N)
     # Ngrid = 500
     # time_grid_non_uniform = []
     # append!(time_grid_non_uniform, range(t0, 13, 150)[1:end-1]) #14 200
@@ -287,7 +351,7 @@ for Nt0_local = 480:-10:450
     # append!(time_grid_non_uniform, range(18.5, tf, 100))
     # global time_grid_nonuniform = pushfirst!(time_grid_nonuniform, t0)
     # for Ngrid = 2000:10:2000 #1650
-    Ngrid = 500
+    Ngrid = 200
         global sol_loop = solve(ocp_loop, init=init_loop, grid_size = Ngrid, display = false, max_iter = 3000)
         # global sol_loop = solve(ocp_loop, time_grid = time_grid_nonuniform, init=init_loop, display = false, max_iter = 3000)
         # global sol_loop = solve(ocp_loop, time_grid = newtimegrid, init=init_loop, display = false, max_iter = 3000)
@@ -302,8 +366,8 @@ for Nt0_local = 480:-10:450
         # println("The first time of positive x is: $(iii[1]), The last is: $(iii[end])")
         if sol_loop.objective < 2.5 && sol_loop.iterations < 3000
             global init_loop = sol_loop
-            save(sol_loop, filename_prefix="solution_$(Nt0_local)")
-            export_ocp_solution(sol_loop, filename_prefix="solution_$(Nt0_local)")
+            save(sol_loop, filename_prefix="solution_timechange_$(Nt0_local)")
+            export_ocp_solution(sol_loop, filename_prefix="solution_timechange_$(Nt0_local)")
         end
         println("Time: $(Nt0_local), Objective: $(sol_loop.objective), Iteration: $(sol_loop.iterations)")
         # p = fun_plot_sol(sol_loop)
@@ -311,8 +375,8 @@ for Nt0_local = 480:-10:450
     # end
     push!(sol_list, sol_loop)
 end
-
-sol = sol_list[end]
+sol_save = sol
+sol = sol_list[end-5]
 # sol_145 = sol
 # sol_last_converged = sol
 

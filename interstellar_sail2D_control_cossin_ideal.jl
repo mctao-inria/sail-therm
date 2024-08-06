@@ -74,7 +74,7 @@ N = length(t_inter)
 x_inter = [ [ matrix_data[i][j] for i ∈ 2:7 ] for j ∈ 1:N ]
 u_inter = control_ideal.(x_inter)
 
-N_init = 350
+N_init = 450
 time_init = t_inter[N_init]
 x0 = [x_inter[N_init][1:2]; x_inter[N_init][4:5]]
 time_grid_nonuniform = t_inter[N_init:N]
@@ -188,11 +188,11 @@ u(t)  = itp_u(t)
 
 initial_guess = (state=x, control=u)
 
+
 # time_grid_non_uniform = []
 # append!(time_grid_non_uniform, range(t0, t0 + (tf-t0)/2, 100)[1:end-1])
 # append!(time_grid_non_uniform, range(t0 + (tf-t0)/2, tf, 200))
-
-sol = solve(ocp; init=initial_guess, grid_size = 400)
+sol = solve(ocp; init=initial_guess, grid_size = 500)
 # sol = solve(ocp; init=initial_guess, time_grid = time_grid_nonuniform)
 # sol = solve(ocp; init=initial_guess, time_grid = time_grid_non_uniform)
 # time_grid_nonuniform
@@ -219,6 +219,14 @@ p3 = plot(sol.times .* TU / 86400 / 365, [ x_sol[i][3] for i ∈ 1:Nsol ], size=
 p4 = plot(sol.times .* TU / 86400 / 365, [ x_sol[i][4] for i ∈ 1:Nsol ], size=(600, 300), linewidth = 1, color = "blue", xlabel = "t", ylabel = "v₂")
 plot(p1, p2, p3, p4, layout=(2,2), legend=false)
 savefig("figures/plot_state.pdf");
+
+p_sol = sol.costate.(sol.times)
+p1 = plot(sol.times .* TU / 86400 / 365, [ p_sol[i][1] for i ∈ 1:Nsol ], size=(600, 300), linewidth = 1, color = "blue", xlabel = "t", ylabel = "pr₁")
+p2 = plot(sol.times .* TU / 86400 / 365, [ p_sol[i][2] for i ∈ 1:Nsol ], size=(600, 300), linewidth = 1, color = "blue", xlabel = "t", ylabel = "pr₂")
+p3 = plot(sol.times .* TU / 86400 / 365, [ p_sol[i][3] for i ∈ 1:Nsol ], size=(600, 300), linewidth = 1, color = "blue", xlabel = "t", ylabel = "pv₁")
+p4 = plot(sol.times .* TU / 86400 / 365, [ p_sol[i][4] for i ∈ 1:Nsol ], size=(600, 300), linewidth = 1, color = "blue", xlabel = "t", ylabel = "pv₂")
+plot(p1, p2, p3, p4, layout=(2,2), legend=false)
+savefig("figures/plot_сostate.pdf");
 
 u_sol = sol.control.(sol.times)
 
@@ -266,8 +274,8 @@ savefig(plot_normr, "figures/plot_distance_from_sun.pdf");
 # init_loop = initial_guess
 init_loop = sol
 # init_loop = sol_last_converged
-sol_list = []
-time_grid_nonuniform = sol.times
+# sol_list = []
+time_grid_non_uniform = sol.times
 # time_grid_non_uniform = []
 # append!(time_grid_non_uniform, range(t0, 12, 150)[1:end-1]) #14 200
 # append!(time_grid_non_uniform, range(12, 19.5, 200)[1:end-1]) #17 400
@@ -278,19 +286,59 @@ time_grid_nonuniform = sol.times
 # append!(time_grid_non_uniform1, time_grid_nonuniform[4:308])
 # append!(time_grid_non_uniform1, range(18.701935,18.762195, 10))
 # append!(time_grid_non_uniform1, time_grid_nonuniform[314:end])
+# time_grid_non_uniform_working = time_grid_non_uniform
 
-for Nt0_local = 349:-1:300
+x1 = [ x_sol[i][1] for i ∈ 1:Nsol ]
+iii = findall(i->(i>0), x1)
+iii[1]
+iii[end]
+time_grid_non_uniform
+time_grid_non_uniform[iii[1]]
+time_grid_non_uniform[iii[end]]
+t0
+time_grid_non_uniform_new = []
+append!(time_grid_non_uniform_new, time_grid_non_uniform[1:80][1:end-1]) #7.284811 100
+append!(time_grid_non_uniform_new, time_grid_non_uniform[80:142][1:end-1]) #7.284811 100
+append!(time_grid_non_uniform_new, time_grid_non_uniform[142:701][1:end-1]) #7.284811 100
+
+time_grid_non_uniform_new = []
+append!(time_grid_non_uniform_new, range(2.385208, 17, 200)[1:end-1]) #7.284811 100
+append!(time_grid_non_uniform_new, range(17, 18.5, 250)[1:end-1]) #7.284811 100
+append!(time_grid_non_uniform_new, range(19.5, tf, 100))
+# append!(time_grid_non_uniform_new, time_grid_non_uniform[100:142][1:end-1]) #7.284811 100
+# append!(time_grid_non_uniform_new, time_grid_non_uniform[142:719][1:end-1]) #7.284811 100
+
+
+
+time_grid_non_uniform = time_grid_non_uniform_new
+time_grid_non_uniform = []
+append!(time_grid_non_uniform, range(12.842361, 18.909081, 200)[1:end-1]) #7.284811 100
+append!(time_grid_non_uniform, range(18.909081, 19.129747, 140)[1:end-1]) #18.551284 100
+append!(time_grid_non_uniform, range(19.129747, tf, 50)) # 19.17947069404082 50
+
+for Nt0_local = 182:-1:182
     ocp_loop = ocp_t0(Nt0_local, N)
-    # Ngrid = 500
+    Ngrid = 500
     # time_grid_non_uniform = []
     # append!(time_grid_non_uniform, range(t0, 13, 150)[1:end-1]) #14 200
     # append!(time_grid_non_uniform, range(13, 18.5, 200)[1:end-1]) #17 400
     # append!(time_grid_non_uniform, range(18.5, tf, 100))
-    global time_grid_nonuniform = pushfirst!(time_grid_nonuniform, t0)
+    # global time_grid_non_uniform = pushfirst!(time_grid_non_uniform, t0)
+    # global time_grid_non_uniform = init_loop.times
+    # x_sol_loop = init_loop.state.(init_loop.times)
+    # Nsol = length(x_sol_loop)
+    # x1 = [ x_sol_loop[i][1] for i ∈ 1:Nsol ]
+    # iii = findall(i->(i>0), x1)
+    # global t1 = time_grid_non_uniform[iii[1]-7]
+    # global t2 = time_grid_non_uniform[iii[end]+3]
+    # global time_grid_non_uniform = []
+    # global time_grid_non_uniform = append!(time_grid_non_uniform, range(t0, t1, 150)[1:end-1])
+    # global time_grid_non_uniform = append!(time_grid_non_uniform, range(t1, t2, 150)[1:end-1])
+    # global time_grid_non_uniform = append!(time_grid_non_uniform, range(t2, tf, 150)) 
     # for Ngrid = 2000:10:2000 #1650
     # Ngrid = 500
         # global sol_loop = solve(ocp_loop, init=init_loop, grid_size = Ngrid, display = false, max_iter = 3000)
-        global sol_loop = solve(ocp_loop, time_grid = time_grid_nonuniform, init=init_loop, display = false, max_iter = 3000)
+        global sol_loop = solve(ocp_loop, time_grid = time_grid_non_uniform, init=init_loop, display = false, max_iter = 3000)
         # global sol_loop = solve(ocp_loop, time_grid = newtimegrid, init=init_loop, display = false, max_iter = 3000)
         # if sol_loop.iterations == 5000
     #     println("Iterations exceeded while doing the continuation on the time")
@@ -312,8 +360,9 @@ for Nt0_local = 349:-1:300
     # end
     push!(sol_list, sol_loop)
 end
-
-sol = sol_list[end-150]
+# sol = sol_save
+# sol_save = sol
+sol = sol_list[end-32]
 # sol_145 = sol
 # sol_last_converged = sol
 
@@ -330,7 +379,7 @@ sol_save = sol
 
 # JLD save / load
 # save(sol_save, filename_prefix="solution_145")
-sol = load("run_17_07/solution_4")
+sol = load("run_05_08/solution_4")
 # println("Objective from loaded solution: ", sol_reloaded.objective)
 # sol = load("sol_12_07_ENTIRE")
 
