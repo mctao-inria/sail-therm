@@ -233,6 +233,10 @@ u_sol = sol.control.(sol.times)
 plot_beta = plot(sol.times .* TU / 86400 / 365, asind.([u_sol[i][2] for i ∈ 1:Nsol]), label="control angle", linewidth = 2, color = "blue")
 ylabel!("[deg]")
 savefig(plot_beta, "figures/plot_beta.pdf");
+
+plot_beta_zoom = plot(sol.times[475:550] .* TU / 86400 / 365, asind.([u_sol[i][2] for i ∈ 475:550]), label="control angle", linewidth = 2, color = "blue")
+ylabel!("[deg]")
+savefig(plot_beta_zoom, "figures/plot_beta_zoom.pdf");
  
 
 plot_temperature = Plots.plot(sol.times .* TU / 86400 / 365, temperature.(x_sol, u_sol), size=(600, 600), label="sail temperature", linewidth = 2, color = "blue")
@@ -291,20 +295,28 @@ time_grid_non_uniform = sol.times
 x1 = [ x_sol[i][1] for i ∈ 1:Nsol ]
 iii = findall(i->(i>0), x1)
 iii[1]
+iii[24]
+iii[25]
 iii[end]
 time_grid_non_uniform
-time_grid_non_uniform[iii[1]]
+time_grid_non_uniform[iii[24]]
+time_grid_non_uniform[iii[25]]
 time_grid_non_uniform[iii[end]]
-t0
+sol.times[1]
 time_grid_non_uniform_new = []
 append!(time_grid_non_uniform_new, time_grid_non_uniform[1:80][1:end-1]) #7.284811 100
 append!(time_grid_non_uniform_new, time_grid_non_uniform[80:142][1:end-1]) #7.284811 100
 append!(time_grid_non_uniform_new, time_grid_non_uniform[142:701][1:end-1]) #7.284811 100
 
 time_grid_non_uniform_new = []
-append!(time_grid_non_uniform_new, range(2.385208, 17, 200)[1:end-1]) #7.284811 100
-append!(time_grid_non_uniform_new, range(17, 18.5, 250)[1:end-1]) #7.284811 100
-append!(time_grid_non_uniform_new, range(19.5, tf, 100))
+append!(time_grid_non_uniform_new, range(0.045298, 0.6, 100)[1:end-1]) #7.284811 100
+append!(time_grid_non_uniform_new, range(0.6, 1, 50)[1:end-1])
+append!(time_grid_non_uniform_new, range(1, 5, 50)[1:end-1]) 
+append!(time_grid_non_uniform_new, range(5, 15, 150)[1:end-1]) #7.284811 100
+# append!(time_grid_non_uniform_new, time_grid_non_uniform[1:288][1:end-1]) 
+append!(time_grid_non_uniform_new, range(15, 16.5, 250)[1:end-1])
+# append!(time_grid_non_uniform_new, range(15.057564522613069, 17, 250)[1:end-1]) #7.284811 100
+append!(time_grid_non_uniform_new, range(16.5, tf, 200))
 # append!(time_grid_non_uniform_new, time_grid_non_uniform[100:142][1:end-1]) #7.284811 100
 # append!(time_grid_non_uniform_new, time_grid_non_uniform[142:719][1:end-1]) #7.284811 100
 
@@ -316,14 +328,14 @@ append!(time_grid_non_uniform, range(12.842361, 18.909081, 200)[1:end-1]) #7.284
 append!(time_grid_non_uniform, range(18.909081, 19.129747, 140)[1:end-1]) #18.551284 100
 append!(time_grid_non_uniform, range(19.129747, tf, 50)) # 19.17947069404082 50
 
-for Nt0_local = 182:-1:182
+for Nt0_local = 3:-1:1
     ocp_loop = ocp_t0(Nt0_local, N)
     Ngrid = 500
     # time_grid_non_uniform = []
     # append!(time_grid_non_uniform, range(t0, 13, 150)[1:end-1]) #14 200
     # append!(time_grid_non_uniform, range(13, 18.5, 200)[1:end-1]) #17 400
     # append!(time_grid_non_uniform, range(18.5, tf, 100))
-    # global time_grid_non_uniform = pushfirst!(time_grid_non_uniform, t0)
+    global time_grid_non_uniform = pushfirst!(time_grid_non_uniform, t0)
     # global time_grid_non_uniform = init_loop.times
     # x_sol_loop = init_loop.state.(init_loop.times)
     # Nsol = length(x_sol_loop)
@@ -362,9 +374,11 @@ for Nt0_local = 182:-1:182
 end
 # sol = sol_save
 # sol_save = sol
-sol = sol_list[end-32]
+# sol=sol_loop
+sol = sol_list[end]
 # sol_145 = sol
 # sol_last_converged = sol
+1.1748917851808176
 
 # x1 = [ x_sol[i][1] for i ∈ 1:Nsol ]
 # findall(i->(i>0), x1)
@@ -379,7 +393,7 @@ sol_save = sol
 
 # JLD save / load
 # save(sol_save, filename_prefix="solution_145")
-sol = load("run_05_08/solution_4")
+sol = load("run_23_07_abs/solution_300")
 # println("Objective from loaded solution: ", sol_reloaded.objective)
 # sol = load("sol_12_07_ENTIRE")
 
