@@ -208,8 +208,8 @@ savefig(plot_traj2D, "figures/plot_traj_dots.pdf");
 plot_traj2D = Plots.plot([ x_sol[i][1] for i ∈ 1:Nsol ], [ x_sol[i][2] for i ∈ 1:Nsol ], size=(600, 600), label="direct without initial guess", linewidth = 2, color = "blue")#, seriestype = :scatter)
 plot_sun = Plots.plot!(rSun .* cos.([ i*pi/50 for i=0:100 ]),  rSun .* sin.([ i*pi/50 for i=0:100 ]), m = :star5, markercolor=RGB(0.9290, 0.6940, 0.1250), markerstrokecolor = RGB(0.9290, 0.6940, 0.1250), markersize = 2, label = :none);
 plot_traj_matlab = Plots.plot!(matrix_data[2], matrix_data[3], size=(600, 600), label="local-optimal", linewidth = 1, color = "red")
-# scatter!([x_sol[1][1]], [x_sol[1][2]], label="beginning of the optimised arc" )
-# scatter!([x_sol[end][1]], [x_sol[end][2]], label="end of the optimised arc" )
+scatter!([x_sol[1][1]], [x_sol[1][2]], label="beginning of the optimised arc" )
+scatter!([x_sol[end][1]], [x_sol[end][2]], label="end of the optimised arc" )
 # scatter!([0], [0], label="Sun", color="yellow" )
 savefig(plot_traj2D, "figures/plot_traj.pdf");
 
@@ -229,7 +229,7 @@ plot(p1, p2, p3, p4, layout=(2,2), legend=false)
 savefig("figures/plot_сostate.pdf");
 
 u_sol = sol.control.(sol.times)
-
+beta_sol = asind.([u_sol[i][2] for i ∈ 1:Nsol])
 plot_beta = plot(sol.times .* TU / 86400 / 365, asind.([u_sol[i][2] for i ∈ 1:Nsol]), label="control angle", linewidth = 2, color = "blue")
 ylabel!("[deg]")
 savefig(plot_beta, "figures/plot_beta.pdf");
@@ -393,7 +393,7 @@ sol_save = sol
 
 # JLD save / load
 # save(sol_save, filename_prefix="solution_145")
-sol = load("run_23_07_abs/solution_300")
+sol = load("run_06_08/solution_300")
 # println("Objective from loaded solution: ", sol_reloaded.objective)
 # sol = load("sol_12_07_ENTIRE")
 
