@@ -1,8 +1,9 @@
 using OptimalControl
 using NLPModelsIpopt
-using Plots
 using Interpolations
 using JLD2, JSON3
+using Plots
+Plots.scalefontsizes(2)
 
 include("kepl2cart.jl")
 include("control_ideal2D_cossin.jl")
@@ -205,11 +206,11 @@ Nsol = length(x_sol)
 # Nsol = 200
 plot_traj2D = Plots.plot([ x_sol[i][1] for i ∈ 1:Nsol ], [ x_sol[i][2] for i ∈ 1:Nsol ], size=(600, 600), label="direct without initial guess", linewidth = 2, color = "blue", seriestype = :scatter)
 savefig(plot_traj2D, "figures/plot_traj_dots.pdf");
-plot_traj2D = Plots.plot([ x_sol[i][1] for i ∈ 1:Nsol ], [ x_sol[i][2] for i ∈ 1:Nsol ], size=(600, 600), label="direct without initial guess", linewidth = 2, color = "blue")#, seriestype = :scatter)
+plot_traj2D = Plots.plot([ x_sol[i][1] for i ∈ 1:Nsol ], [ x_sol[i][2] for i ∈ 1:Nsol ], size=(600, 600), label="optimized trajectory", linewidth = 2, color = "blue", xlabel = "AU", ylabel = "AU")#, seriestype = :scatter)
 plot_sun = Plots.plot!(rSun .* cos.([ i*pi/50 for i=0:100 ]),  rSun .* sin.([ i*pi/50 for i=0:100 ]), m = :star5, markercolor=RGB(0.9290, 0.6940, 0.1250), markerstrokecolor = RGB(0.9290, 0.6940, 0.1250), markersize = 2, label = :none);
 plot_traj_matlab = Plots.plot!(matrix_data[2], matrix_data[3], size=(600, 600), label="local-optimal", linewidth = 1, color = "red")
-scatter!([x_sol[1][1]], [x_sol[1][2]], label="beginning of the optimised arc" )
-scatter!([x_sol[end][1]], [x_sol[end][2]], label="end of the optimised arc" )
+# scatter!([x_sol[1][1]], [x_sol[1][2]], label="beginning of the optimised arc" )
+# scatter!([x_sol[end][1]], [x_sol[end][2]], label="end of the optimised arc" )
 # scatter!([0], [0], label="Sun", color="yellow" )
 savefig(plot_traj2D, "figures/plot_traj.pdf");
 
@@ -230,25 +231,30 @@ savefig("figures/plot_сostate.pdf");
 
 u_sol = sol.control.(sol.times)
 beta_sol = asind.([u_sol[i][2] for i ∈ 1:Nsol])
-plot_beta = plot(sol.times .* TU / 86400 / 365, asind.([u_sol[i][2] for i ∈ 1:Nsol]), label="control angle", linewidth = 2, color = "blue")
-ylabel!("[deg]")
+plot_beta = plot(sol.times .* TU / 86400 / 365, asind.([u_sol[i][2] for i ∈ 1:Nsol]), label=false, linewidth = 2, color = "blue", legend=:topleft, size=(600, 500))
+ylabel!("β [deg]")
+xlabel!("t [years]")
 savefig(plot_beta, "figures/plot_beta.pdf");
 
-plot_beta_zoom = plot(sol.times[475:550] .* TU / 86400 / 365, asind.([u_sol[i][2] for i ∈ 475:550]), label="control angle", linewidth = 2, color = "blue")
-ylabel!("[deg]")
+plot_beta_zoom = plot(sol.times[475:550] .* TU / 86400 / 365, asind.([u_sol[i][2] for i ∈ 475:550]), label=false, linewidth = 2, color = "blue", legend=:topleft, size=(600, 500))
+ylabel!("β [deg]")
+xticks!([2.48, 2.50, 2.52])
+xlabel!("t [years]")
 savefig(plot_beta_zoom, "figures/plot_beta_zoom.pdf");
  
 
 plot_temperature = Plots.plot(sol.times .* TU / 86400 / 365, temperature.(x_sol, u_sol), size=(600, 600), label="sail temperature", linewidth = 2, color = "blue")
 plot!([sol.times[1], sol.times[end]] .* TU / 86400 / 365, [Tlim, Tlim], label="temperature limit", linewidth = 2, color = "red")
 ylabel!("[K]")
+xlabel!("t [years]")
 savefig(plot_temperature, "figures/plot_temperature.pdf");
 
 energy_sol = -mu./sqrt.([x_sol[i][1] for i ∈ 1:Nsol].^2 + [x_sol[i][2] for i ∈ 1:Nsol].^2 ) + 1/2 * ([x_sol[i][3] for i ∈ 1:Nsol].^2 + [x_sol[i][4] for i ∈ 1:Nsol].^2)
 energy_local_optimal = -mu./sqrt.(matrix_data[2].^2 + matrix_data[3].^2 + matrix_data[4].^2) + 1/2 * (matrix_data[5].^2 + matrix_data[6].^2 + matrix_data[7].^2)
 
-plot_energy = Plots.plot(sol.times .* TU / 86400 / 365, energy_sol, size=(600, 600), label="orbital energy", linewidth = 2, color = "blue")
-plot!(matrix_data[1] .* TU / 86400 / 365, energy_local_optimal, label="orbital energy, local-optimal", linewidth = 1, color = "red")
+plot_energy = Plots.plot(sol.times .* TU / 86400 / 365, energy_sol, size=(600, 600), label="optimized trajectory", linewidth = 2, color = "blue", xlabel = "t", ylabel = "ε")
+plot!(matrix_data[1] .* TU / 86400 / 365, energy_local_optimal, label="local-optimal", linewidth = 1, color = "red")
+xlabel!("t [years]")
 savefig(plot_energy, "figures/plot_energy.pdf");
 
 normr = sqrt.([ x_sol[i][1] for i ∈ 1:Nsol ].^2 + [ x_sol[i][2] for i ∈ 1:Nsol ].^2)
@@ -393,7 +399,7 @@ sol_save = sol
 
 # JLD save / load
 # save(sol_save, filename_prefix="solution_145")
-sol = load("run_06_08/solution_300")
+sol = load("run_06_08/solution_4")
 # println("Objective from loaded solution: ", sol_reloaded.objective)
 # sol = load("sol_12_07_ENTIRE")
 
